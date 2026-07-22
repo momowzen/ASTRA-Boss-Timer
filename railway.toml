@@ -1,0 +1,2 @@
+[variables]
+NIXPACKS_APT_PACKAGES = "ffmpeg"
