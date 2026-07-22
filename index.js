@@ -57,15 +57,17 @@ let isSpeaking = false;
 
 async function connectVoice() {
   const voiceId = config.voice?.en;
-  if (!voiceId) return;
+  if (!voiceId) { console.log('[VOICE] No voice channel configured'); return; }
   try {
     const channel = await client.channels.fetch(voiceId);
-    if (!channel?.isVoiceBased()) { console.log('Channel is not voice:', voiceId); return; }
+    if (!channel?.isVoiceBased()) { console.log('[VOICE] Channel is not voice:', voiceId); return; }
     const guild = channel.guild;
-    console.log('Connecting to voice:', guild.name, channel.name);
+    console.log('[VOICE] Connecting to:', guild.name, '-', channel.name);
     audioPlayer = createAudioPlayer();
-    audioPlayer.on('error', e => console.error('Audio error:', e.message));
+    audioPlayer.on('error', e => console.error('[VOICE] Audio player error:', e.message));
+    audioPlayer.on('stateChange', (oldState, newState) => console.log('[VOICE] Player state:', oldState?.status, '->', newState?.status));
     audioPlayer.on(AudioPlayerStatus.Idle, () => {
+      console.log('[VOICE] Player idle, queue length:', speakQueue.length);
       isSpeaking = false;
       if (speakQueue.length) {
         const next = speakQueue.shift();
@@ -90,18 +92,23 @@ async function connectVoice() {
 }
 
 async function speak(text) {
+  console.log('[TTS] speak called, text length:', text?.length, 'voice:', !!voiceConnection, 'player:', !!audioPlayer);
   if (!voiceConnection || !audioPlayer) return;
   if (isSpeaking || audioPlayer.state.status !== AudioPlayerStatus.Idle) {
+    console.log('[TTS] queued, isSpeaking:', isSpeaking);
     speakQueue.push(text);
     return;
   }
   isSpeaking = true;
   try {
     const lang = config.voiceLang || 'en';
+    console.log('[TTS] fetching audio, lang:', lang);
     const base64 = await getAudioBase64(text, { lang, slow: false });
+    console.log('[TTS] got audio, length:', base64?.length);
     const stream = Readable.from(Buffer.from(base64, 'base64'));
     audioPlayer.play(createAudioResource(stream));
-  } catch (e) { console.error('TTS error:', e.message); isSpeaking = false; }
+    console.log('[TTS] playing');
+  } catch (e) { console.error('[TTS] error:', e.message); isSpeaking = false; }
 }
 
 async function loadConfig() {
