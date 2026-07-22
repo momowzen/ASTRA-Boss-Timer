@@ -1,0 +1,17 @@
+{
+  "name": "astra-boss-timer-bot",
+  "version": "1.0.0",
+  "description": "Discord bot for ASTRA BOSS TIMER",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "@discordjs/voice": "^0.19.2",
+    "discord.js": "^14.16.0",
+    "dotenv": "^16.4.5",
+    "firebase-admin": "^12.6.0",
+    "google-tts-api": "^2.0.2"
+  }
+}
