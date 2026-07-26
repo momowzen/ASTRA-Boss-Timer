@@ -25,12 +25,13 @@ const LANG = {
     fixSchedule: "Fix Schedule",
     fixInterval: "Fix Interval",
     futureTime: "Kill time cannot be in the future.",
-    byUser: "by",
+    byUser: "By:",
     invalidTime: "Invalid time format. Use HHMM.",
     invalidDate: "Invalid date/time format.",
     importSuccess: "Timers imported!",
     bossNotFoundReact: "Boss not found.",
     notAvailable: "Not available.",
+    scheduleOnly: "Cannot use this command on schedule bosses.",
     markedDead: "Boss marked dead!",
     markedMissed: "Boss marked missed!",
     noActiveBosses: "No active bosses found.",
@@ -58,8 +59,7 @@ const LANG = {
       Secreta: "Secreta", Ordo: "Ordo", Asta: "Asta", Supore: "Supore",
       Chaiflock: "Chaiflock", Benji: "Benji", Libitina: "Libitina",
       Rakajeth: "Rakajeth", Icaruthia: "Icaruthia", Motti: "Motti",
-      Camalia: "Camalia", Nevaeh: "Nevaeh", Tumier: "Tumier",       Lucus: "Lucus",
-      TestBoss: "Test Boss"
+      Camalia: "Camalia", Nevaeh: "Nevaeh", Tumier: "Tumier",       Lucus: "Lucus"
     }
   },
   ko: {
@@ -88,12 +88,13 @@ const LANG = {
     fixSchedule: "고정 스케줄",
     fixInterval: "고정 주기",
     futureTime: "처치 시간은 미래일 수 없습니다.",
-    byUser: "—",
+    byUser: "설정자:",
     invalidTime: "잘못된 시간 형식. HHMM을 사용하세요.",
     invalidDate: "잘못된 날짜/시간 형식.",
     importSuccess: "타이머를 가져왔습니다!",
     bossNotFoundReact: "보스를 찾을 수 없습니다.",
     notAvailable: "사용할 수 없습니다.",
+    scheduleOnly: "고정 스케줄 보스에는 사용할 수 없습니다.",
     markedDead: "보스 처치 기록됨!",
     markedMissed: "보스 놓침 기록됨!",
     noActiveBosses: "활성 보스가 없습니다.",
@@ -121,8 +122,7 @@ const LANG = {
       Secreta: "세크레타", Ordo: "오르도", Asta: "아스타", Supore: "스포르",
       Chaiflock: "샤이플록", Benji: "벤지", Libitina: "리비티나",
       Rakajeth: "라카제스", Icaruthia: "이카루시아", Motti: "모티",
-      Camalia: "카말리아", Nevaeh: "네바", Tumier: "투미엘",       Lucus: "루크스",
-      TestBoss: "테스트 보스"
+      Camalia: "카말리아", Nevaeh: "네바", Tumier: "투미엘",       Lucus: "루크스"
     }
   },
   ja: {
@@ -151,12 +151,13 @@ const LANG = {
     fixSchedule: "固定スケジュール",
     fixInterval: "固定周期",
     futureTime: "討伐時間は未来にできません。",
-    byUser: "—",
+    byUser: "設定者:",
     invalidTime: "無効な時間形式。HHMMを使用してください。",
     invalidDate: "無効な日付/時間形式。",
     importSuccess: "タイマーをインポートしました！",
     bossNotFoundReact: "ボスが見つかりません。",
     notAvailable: "利用できません。",
+    scheduleOnly: "固定スケジュールボスには使用できません。",
     markedDead: "ボス討伐記録済み！",
     markedMissed: "ボス取り逃し記録済み！",
     noActiveBosses: "アクティブなボスはありません。",
@@ -184,8 +185,7 @@ const LANG = {
       Secreta: "セクレタ", Ordo: "オルド", Asta: "アスタ", Supore: "スポル",
       Chaiflock: "シャイフロック", Benji: "ベンジー", Libitina: "リビティーナ",
       Rakajeth: "ラカゼス", Icaruthia: "イカルシア", Motti: "モティ",
-      Camalia: "カマリア", Nevaeh: "ネバ", Tumier: "トゥミエル",       Lucus: "ルクス",
-      TestBoss: "テストボス"
+      Camalia: "カマリア", Nevaeh: "ネバ", Tumier: "トゥミエル",       Lucus: "ルクス"
     }
   }
 };
@@ -230,8 +230,7 @@ const BOSSES_DATA = [
   { id: "Camalia", name: "Camalia", level: 135, weeklyRespawns: [{ day: 4, hour: 22, minute: 0 }] },
   { id: "Nevaeh", name: "Nevaeh", level: 140, weeklyRespawns: [{ day: 0, hour: 23, minute: 0 }] },
   { id: "Tumier", name: "Tumier", level: 140, weeklyRespawns: [{ day: 0, hour: 20, minute: 0 }] },
-  { id: "Lucus", name: "Lucus", level: 145, weeklyRespawns: [{ day: 6, hour: 23, minute: 0 }] },
-  { id: "TestBoss", name: "Test Boss", level: 1, respawn: 305 }
+  { id: "Lucus", name: "Lucus", level: 145, weeklyRespawns: [{ day: 6, hour: 23, minute: 0 }] }
 ];
 
 const TZ_OFFSET = 9 * 60 * 60 * 1000;

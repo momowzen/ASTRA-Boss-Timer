@@ -15,7 +15,7 @@ const client = new Client({
 try {
   const serviceAccount = JSON.parse(
     process.env.FIREBASE_SERVICE_ACCOUNT ||
-    readFileSync(process.env.FIREBASE_SERVICE_ACCOUNT_PATH || '../service-account.json', 'utf8')
+    readFileSync(process.env.FIREBASE_SERVICE_ACCOUNT_PATH || './service-account.json', 'utf8')
   );
   admin.initializeApp({ credential: admin.credential.cert(serviceAccount) });
 } catch (e) {
@@ -54,24 +54,24 @@ let audioPlayer = null;
 let voiceConnection = null;
 let speakQueue = [];
 let isSpeaking = false;
+let idleTimer = null;
 
 async function connectVoice() {
   const voiceId = config.voice?.en;
-  if (!voiceId) { console.log('[VOICE] No voice channel configured'); return; }
+  if (!voiceId || voiceConnection) return;
   try {
     const channel = await client.channels.fetch(voiceId);
-    if (!channel?.isVoiceBased()) { console.log('[VOICE] Channel is not voice:', voiceId); return; }
+    if (!channel?.isVoiceBased()) return;
     const guild = channel.guild;
-    console.log('[VOICE] Connecting to:', guild.name, '-', channel.name);
     audioPlayer = createAudioPlayer();
-    audioPlayer.on('error', e => console.error('[VOICE] Audio player error:', e.message));
-    audioPlayer.on('stateChange', (oldState, newState) => console.log('[VOICE] Player state:', oldState?.status, '->', newState?.status));
+    audioPlayer.on('error', e => console.error('[VOICE] Error:', e.message));
     audioPlayer.on(AudioPlayerStatus.Idle, () => {
-      console.log('[VOICE] Player idle, queue length:', speakQueue.length);
       isSpeaking = false;
       if (speakQueue.length) {
         const next = speakQueue.shift();
         speak(next);
+      } else {
+        idleTimer = setTimeout(() => disconnectVoice(), 600000);
       }
     });
     voiceConnection = joinVoiceChannel({
@@ -80,34 +80,33 @@ async function connectVoice() {
     });
     voiceConnection.on(VoiceConnectionStatus.Disconnected, async () => {
       try { await Promise.race([entersState(voiceConnection, VoiceConnectionStatus.Signalling, 5000), entersState(voiceConnection, VoiceConnectionStatus.Connecting, 5000)]); }
-      catch { voiceConnection?.destroy(); voiceConnection = null; isSpeaking = false; speakQueue = []; }
-    });
-    voiceConnection.on(VoiceConnectionStatus.Destroyed, () => {
-      isSpeaking = false; speakQueue = [];
-      setTimeout(() => connectVoice(), 10000);
+      catch { disconnectVoice(); }
     });
     voiceConnection.subscribe(audioPlayer);
-    console.log('Voice connected');
-  } catch (e) { console.error('Voice connect error:', e.message); }
+  } catch (e) { console.error('[VOICE] Connect error:', e.message); }
+}
+
+function disconnectVoice() {
+  if (idleTimer) { clearTimeout(idleTimer); idleTimer = null; }
+  if (voiceConnection) { voiceConnection.destroy(); voiceConnection = null; }
+  audioPlayer = null; isSpeaking = false; speakQueue = [];
 }
 
 async function speak(text) {
-  console.log('[TTS] speak called, text length:', text?.length, 'voice:', !!voiceConnection, 'player:', !!audioPlayer);
+  if (!config.voice?.en) return;
+  if (!voiceConnection) await connectVoice();
   if (!voiceConnection || !audioPlayer) return;
+  if (idleTimer) { clearTimeout(idleTimer); idleTimer = null; }
   if (isSpeaking || audioPlayer.state.status !== AudioPlayerStatus.Idle) {
-    console.log('[TTS] queued, isSpeaking:', isSpeaking);
     speakQueue.push(text);
     return;
   }
   isSpeaking = true;
   try {
     const lang = config.voiceLang || 'en';
-    console.log('[TTS] fetching audio, lang:', lang);
     const base64 = await getAudioBase64(text, { lang, slow: false });
-    console.log('[TTS] got audio, length:', base64?.length);
     const stream = Readable.from(Buffer.from(base64, 'base64'));
     audioPlayer.play(createAudioResource(stream));
-    console.log('[TTS] playing');
   } catch (e) { console.error('[TTS] error:', e.message); isSpeaking = false; }
 }
 
@@ -187,6 +186,21 @@ function formatJST(ms, lang = 'en') {
   return new Date(ms).toLocaleString(locales[lang] || 'en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: lang !== 'ja', timeZone: TZ });
 }
 
+function formatSpawnTime(ms) {
+  const d = new Date(ms + TZ_OFFSET);
+  return `${d.getUTCMonth() + 1}/${d.getUTCDate()} ${String(d.getUTCHours()).padStart(2, '0')}:${String(d.getUTCMinutes()).padStart(2, '0')}`;
+}
+
+function formatRemaining(ms) {
+  if (ms <= 0) return '00h00m';
+  const s = Math.floor(ms / 1000);
+  const d = Math.floor(s / 86400);
+  const h = Math.floor((s % 86400) / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  if (d > 0) return `${d}d${String(h).padStart(2, '0')}h${String(m).padStart(2, '0')}m`;
+  return `${String(h).padStart(2, '0')}h${String(m).padStart(2, '0')}m`;
+}
+
 function visualLen(str) {
   let len = 0;
   for (const c of str) len += /[\u3000-\u303f\u3040-\u309f\u30a0-\u30ff\uff00-\uffef\u4e00-\u9faf\uac00-\ud7af]/.test(c) ? 2 : 1;
@@ -210,14 +224,14 @@ function getChannel(lang) {
   return client.channels.cache.get(channelId) || null;
 }
 
-async function sendNotif(lang, content, buttons = false) {
+async function sendNotif(lang, content, bossId, buttons = false) {
   const channel = getChannel(lang);
   if (!channel) return null;
   try {
     const components = buttons ? [new ActionRowBuilder()
       .addComponents(
-        new ButtonBuilder().setCustomId(`markdead`).setStyle(ButtonStyle.Danger).setLabel(t('markDeadBtn', lang)).setEmoji('💀'),
-        new ButtonBuilder().setCustomId(`missed`).setStyle(ButtonStyle.Secondary).setLabel(t('missedBtn', lang)).setEmoji('⏰')
+        new ButtonBuilder().setCustomId(`markdead_${bossId || '0'}`).setStyle(ButtonStyle.Danger).setLabel(t('markDeadBtn', lang)).setEmoji('💀'),
+        new ButtonBuilder().setCustomId(`missed_${bossId || '0'}`).setStyle(ButtonStyle.Secondary).setLabel(t('missedBtn', lang)).setEmoji('⏰')
       )] : [];
     return await channel.send({ content, components });
   } catch (e) {
@@ -225,12 +239,12 @@ async function sendNotif(lang, content, buttons = false) {
   }
 }
 
-async function sendAllNotifs(contentEn, contentKo, contentJa, buttons = false) {
+async function sendAllNotifs(contentEn, contentKo, contentJa, bossId, buttons = false) {
   const promises = [];
   const langs = [];
-  if (config.channels.en) { promises.push(sendNotif('en', contentEn, buttons)); langs.push('en'); }
-  if (config.channels.ko) { promises.push(sendNotif('ko', contentKo, buttons)); langs.push('ko'); }
-  if (config.channels.ja) { promises.push(sendNotif('ja', contentJa, buttons)); langs.push('ja'); }
+  if (config.channels.en) { promises.push(sendNotif('en', contentEn, bossId, buttons)); langs.push('en'); }
+  if (config.channels.ko) { promises.push(sendNotif('ko', contentKo, bossId, buttons)); langs.push('ko'); }
+  if (config.channels.ja) { promises.push(sendNotif('ja', contentJa, bossId, buttons)); langs.push('ja'); }
   const results = await Promise.all(promises);
   const msgs = {};
   results.forEach((msg, i) => { if (msg) msgs[langs[i]] = msg; });
@@ -288,18 +302,19 @@ const CMD_ALIAS = {
   miss: { en: 'miss', ko: '놓침', ja: '逃し' },
   clear: { en: 'clear', ko: '초기화', ja: '解除' },
   bl: { en: 'bl', ko: '목록', ja: '一覧' },
-  bt: { en: 'bt', ko: '곧', ja: 'まもなく' },
+
+  ut: { en: 'ut', ko: '곧', ja: 'まもなく' },
   reset_tracker: { en: 'reset_tracker', ko: '초기화_전체', ja: '全解除' }
 };
 
 const CMD_PARAMS = {
   kill: '<bossname>', set: '<bossname> <MM/DD> <HHMM>', miss: '<bossname>', clear: '<bossname>',
-  bt: '', bl: '', reset_tracker: ''
+  ut: '', bl: '', reset_tracker: ''
 };
 
 const CMD_DESC = {
   kill: 'killDesc', set: 'setDesc', miss: 'missDesc', clear: 'clearDesc',
-  bt: 'btDesc', bl: 'blDesc', reset_tracker: 'resetDesc'
+  ut: 'utDesc', bl: 'blDesc', reset_tracker: 'resetDesc'
 };
 
 let CMD_MAP = {};
@@ -331,7 +346,7 @@ async function handleCommand(msg) {
     const query = parts.slice(1).join(' ');
     const boss = findBoss(query, lang);
     if (!boss) return msg.reply(`${t('bossNotFound', lang)} ${query}`);
-    if (!boss.respawn) return msg.reply(`${t('bossNotFound', lang)} ${query}`);
+    if (boss.weeklyRespawns) return msg.reply(t('scheduleOnly', lang));
 
     const now = Date.now();
     const endTime = now + boss.respawn * 1000;
@@ -341,10 +356,14 @@ async function handleCommand(msg) {
     await saveTimers();
     await addHistory(boss.id, 'killed', now);
     const user = msg.author.toString();
+    const nextStrEn = formatJST(endTime, 'en');
+    const nextStrKo = formatJST(endTime, 'ko');
+    const nextStrJa = formatJST(endTime, 'ja');
     await sendAllNotifs(
-      `**${bossName(boss.id, 'en')}** ${t('killed', 'en')} ${t('byUser', 'en')} ${user}`,
-      `**${bossName(boss.id, 'ko')}** ${t('killed', 'ko')} ${t('byUser', 'ko')} ${user}`,
-      `**${bossName(boss.id, 'ja')}** ${t('killed', 'ja')} ${t('byUser', 'ja')} ${user}`
+      `**${bossName(boss.id, 'en')}** ${t('defeated', 'en')}\n${t('killTime', 'en')}: ${formatJST(now, 'en')}\n${t('nextRespawn', 'en')}: ${nextStrEn}\n${t('byUser', 'en')} ${user}`,
+      `**${bossName(boss.id, 'ko')}** ${t('defeated', 'ko')}\n${t('killTime', 'ko')}: ${formatJST(now, 'ko')}\n${t('nextRespawn', 'ko')}: ${nextStrKo}\n${t('byUser', 'ko')} ${user}`,
+      `**${bossName(boss.id, 'ja')}** ${t('defeated', 'ja')}\n${t('killTime', 'ja')}: ${formatJST(now, 'ja')}\n${t('nextRespawn', 'ja')}: ${nextStrJa}\n${t('byUser', 'ja')} ${user}`,
+      boss.id
     );
     speakDefeated(boss.id, endTime);
     return;
@@ -362,6 +381,7 @@ async function handleCommand(msg) {
     }
     const boss = findBoss(query, lang);
     if (!boss) return msg.reply(`${t('bossNotFound', lang)} ${query}`);
+    if (boss.weeklyRespawns) return msg.reply(t('scheduleOnly', lang));
 
     const hour = parseInt(timeStr.slice(0, 2));
     const minute = parseInt(timeStr.slice(2, 4));
@@ -387,10 +407,14 @@ async function handleCommand(msg) {
     await saveTimers();
     await addHistory(boss.id, 'killed', killedAt);
     const user = msg.author.toString();
+    const nextStrEn = formatJST(endTime, 'en');
+    const nextStrKo = formatJST(endTime, 'ko');
+    const nextStrJa = formatJST(endTime, 'ja');
     await sendAllNotifs(
-      `**${bossName(boss.id, 'en')}** ${t('killedManual', 'en')} ${t('byUser', 'en')} ${user}`,
-      `**${bossName(boss.id, 'ko')}** ${t('killedManual', 'ko')} ${t('byUser', 'ko')} ${user}`,
-      `**${bossName(boss.id, 'ja')}** ${t('killedManual', 'ja')} ${t('byUser', 'ja')} ${user}`
+      `**${bossName(boss.id, 'en')}** ${t('manualSet', 'en')}\n${t('killTime', 'en')}: ${formatJST(killedAt, 'en')}\n${t('nextRespawn', 'en')}: ${nextStrEn}\n${t('byUser', 'en')} ${user}`,
+      `**${bossName(boss.id, 'ko')}** ${t('manualSet', 'ko')}\n${t('killTime', 'ko')}: ${formatJST(killedAt, 'ko')}\n${t('nextRespawn', 'ko')}: ${nextStrKo}\n${t('byUser', 'ko')} ${user}`,
+      `**${bossName(boss.id, 'ja')}** ${t('manualSet', 'ja')}\n${t('killTime', 'ja')}: ${formatJST(killedAt, 'ja')}\n${t('nextRespawn', 'ja')}: ${nextStrJa}\n${t('byUser', 'ja')} ${user}`,
+      boss.id
     );
     speakDefeated(boss.id, endTime);
     return;
@@ -400,6 +424,7 @@ async function handleCommand(msg) {
     const query = parts.slice(1).join(' ');
     const boss = findBoss(query, lang);
     if (!boss) return msg.reply(`${t('bossNotFound', lang)} ${query}`);
+    if (boss.weeklyRespawns) return msg.reply(t('scheduleOnly', lang));
 
     const timer = timers[boss.id];
     if (!timer || !timer.endTime) return msg.reply(`${t('noTimer', lang)} ${bossName(boss.id, lang)}`);
@@ -413,10 +438,14 @@ async function handleCommand(msg) {
     await saveTimers();
     await addHistory(boss.id, 'missed', now);
     const user = msg.author.toString();
+    const nextStrEn = formatJST(endTime, 'en');
+    const nextStrKo = formatJST(endTime, 'ko');
+    const nextStrJa = formatJST(endTime, 'ja');
     await sendAllNotifs(
-      `**${bossName(boss.id, 'en')}** ${t('missed', 'en')} ${t('byUser', 'en')} ${user}`,
-      `**${bossName(boss.id, 'ko')}** ${t('missed', 'ko')} ${t('byUser', 'ko')} ${user}`,
-      `**${bossName(boss.id, 'ja')}** ${t('missed', 'ja')} ${t('byUser', 'ja')} ${user}`
+      `**${bossName(boss.id, 'en')}** ${t('missed', 'en')}\n${t('killTime', 'en')}: ${formatJST(killedAt, 'en')}\n${t('nextRespawn', 'en')}: ${nextStrEn}\n${t('byUser', 'en')} ${user}`,
+      `**${bossName(boss.id, 'ko')}** ${t('missed', 'ko')}\n${t('killTime', 'ko')}: ${formatJST(killedAt, 'ko')}\n${t('nextRespawn', 'ko')}: ${nextStrKo}\n${t('byUser', 'ko')} ${user}`,
+      `**${bossName(boss.id, 'ja')}** ${t('missed', 'ja')}\n${t('killTime', 'ja')}: ${formatJST(killedAt, 'ja')}\n${t('nextRespawn', 'ja')}: ${nextStrJa}\n${t('byUser', 'ja')} ${user}`,
+      boss.id
     );
     return;
   }
@@ -425,6 +454,7 @@ async function handleCommand(msg) {
     const query = parts.slice(1).join(' ');
     const boss = findBoss(query, lang);
     if (!boss) return msg.reply(`${t('bossNotFound', lang)} ${query}`);
+    if (boss.weeklyRespawns) return msg.reply(t('scheduleOnly', lang));
 
     removeBossReactions(boss.id).catch(() => {});
     delete timers[boss.id];
@@ -438,20 +468,20 @@ async function handleCommand(msg) {
     return;
   }
 
-  if (cmd === 'bl') {
+if (cmd === 'bl') {
     const schedule = BOSSES_DATA.filter(b => b.weeklyRespawns);
     const interval = BOSSES_DATA.filter(b => b.respawn);
 
     function buildList(list, title) {
-      const S = 18, R = 14, B = 24;
-      const header = padL(t('colSpawn', lang), S) + padC(t('colRemaining', lang), R) + padR(t('colBoss', lang), B);
-      const sep = '-'.repeat(S) + '-'.repeat(R) + '-'.repeat(B);
+      const G = '   ', S = 12, R = 10, B = 20, total = S + G.length + R + G.length + B;
+      const header = padL(t('colSpawn', lang), S) + G + padC(t('colRemaining', lang), R) + G + padR(t('colBoss', lang), B);
+      const sep = '-'.repeat(total);
       const lines = ['**' + title + '**', '```', header, sep];
       for (const boss of list) {
         const next = getNextSpawn(boss);
-        const remaining = next ? formatCountdown(next.getTime() - Date.now()) : '---';
-        const spawnStr = next ? formatJST(next.getTime(), lang) : '---';
-        lines.push(padL(spawnStr, S) + padC(remaining, R) + padR(bossName(boss.id, lang), B));
+        const remaining = next ? formatRemaining(next.getTime() - Date.now()) : '---';
+        const spawnStr = next ? formatSpawnTime(next.getTime()) : '---';
+        lines.push(padL(spawnStr, S) + G + padC(remaining, R) + G + padR(bossName(boss.id, lang), B));
       }
       lines.push('```');
       return lines.join('\n');
@@ -461,29 +491,27 @@ async function handleCommand(msg) {
     return msg.reply(buildList(interval, t('fixInterval', lang)));
   }
 
-  if (cmd === 'bt') {
+  if (cmd === 'ut') {
     const now = Date.now();
-    const jstNow = new Date(now + TZ_OFFSET);
-    const todayStart = new Date(Date.UTC(jstNow.getUTCFullYear(), jstNow.getUTCMonth(), jstNow.getUTCDate())).getTime() - TZ_OFFSET;
-    const end = todayStart + 172800000; // 48h
+    const cutoff24h = now + 86400000;
 
     const bosses = [];
     for (const boss of BOSSES_DATA) {
       const next = getNextSpawn(boss);
       if (next) {
         const time = next.getTime();
-        if (time >= todayStart && time < end) bosses.push({ boss, time });
+        if (time >= now && time <= cutoff24h) bosses.push({ boss, time });
       }
     }
     if (bosses.length === 0) return msg.reply(t('noActiveBosses', lang));
     bosses.sort((a, b) => a.time - b.time);
-    const S = 18, R = 14, B = 24;
-    const header = padL(t('colSpawn', lang), S) + padC(t('colRemaining', lang), R) + padR(t('colBoss', lang), B);
-    const sep = '-'.repeat(S) + '-'.repeat(R) + '-'.repeat(B);
-    const lines = ['**' + t('upcomingField', lang) + '**', '```', header, sep];
+    const G = '   ', S = 12, R = 10, B = 20, total = S + G.length + R + G.length + B;
+    const header = padL(t('colSpawn', lang), S) + G + padC(t('colRemaining', lang), R) + G + padR(t('colBoss', lang), B);
+    const sep = '-'.repeat(total);
+    const lines = ['**📅 ' + t('upcomingField', lang) + '**', '```', header, sep];
     for (const { boss, time } of bosses) {
-      const remaining = formatCountdown(time - now);
-      lines.push(padL(formatJST(time, lang), S) + padC(remaining, R) + padR(bossName(boss.id, lang), B));
+      const remaining = formatRemaining(time - now);
+      lines.push(padL(formatSpawnTime(time), S) + G + padC(remaining, R) + G + padR(bossName(boss.id, lang), B));
     }
     lines.push('```');
     return msg.reply(lines.join('\n'));
@@ -495,7 +523,7 @@ async function handleCommand(msg) {
     }
     await saveTimers();
     const user = msg.author.toString();
-    sendAllNotifs(
+    await sendAllNotifs(
       `**Tracker Reset** — ${t('allReset', 'en')} ${t('byUser', 'en')} ${user}`,
       `**트래커 초기화** — ${t('allReset', 'ko')} ${t('byUser', 'ko')} ${user}`,
       `**トラッカーリセット** — ${t('allReset', 'ja')} ${t('byUser', 'ja')} ${user}`
@@ -525,9 +553,15 @@ function startNotifLoop() {
         try {
         if (!info || !info.endTime) continue;
         const boss = BOSSES_DATA.find(b => b.id === id);
-        if (!boss || !boss.respawn) continue;
+        if (!boss) continue;
+        const hasButtons = !!boss.respawn;
 
+        // Auto-advance schedule bosses that are way past spawn (e.g. on restart)
         const remainingMs = info.endTime - now;
+        if (!boss.respawn && remainingMs < -300000) {
+          const next = getNextSpawn(boss);
+          if (next) { timers[id] = { endTime: next.getTime(), startedAt: next.getTime(), weekly: true }; continue; }
+        }
 
         const cycleKey = `${id}_${info.endTime}`;
 
@@ -549,7 +583,7 @@ function startNotifLoop() {
             `**${bossName(id, 'en')}** ${t('spawning', 'en')}\n${t('spawnTime', 'en')}: ${formatJST(info.endTime, 'en')}`,
             `**${bossName(id, 'ko')}** ${t('spawning', 'ko')}\n${t('spawnTime', 'ko')}: ${formatJST(info.endTime, 'ko')}`,
             `**${bossName(id, 'ja')}** ${t('spawning', 'ja')}\n${t('spawnTime', 'ja')}: ${formatJST(info.endTime, 'ja')}`,
-            true
+            id, hasButtons
           );
           if (msgs.en || msgs.ko || msgs.ja) notifMessageCache.set(id, msgs);
           const data = { bossId: id, type: 'spawning', timestamp: now };
@@ -574,7 +608,7 @@ function startNotifLoop() {
               `**${bossName(id, 'en')}** ${t('spawned', 'en')}`,
               `**${bossName(id, 'ko')}** ${t('spawned', 'ko')}`,
               `**${bossName(id, 'ja')}** ${t('spawned', 'ja')}`,
-              true
+              false
             );
             if (msgs2.en || msgs2.ko || msgs2.ja) notifMessageCache.set(id, msgs2);
           }
@@ -585,20 +619,81 @@ function startNotifLoop() {
       console.error('Notif loop error:', e);
     }
   }, 3000);
-  setInterval(() => { notifMessageCache.clear(); }, 600000);
   setInterval(() => { sentSoonNotifs.clear(); sentSpawnedNotifs.clear(); ttsSpokenMinutes.clear(); }, 3600000);
+}
+
+function buildDetailedHelp() {
+  return [
+    '__**ASTRA BOSS TIMER — 모든 명령어 / 全コマンド / All Commands**__',
+    '',
+    '**🇺🇸 English**',
+    '`kill <bossname>` — Mark boss dead. Records current JST time as kill time.',
+    '`set <bossname> [MMDD] <HHMM>` — Manual kill time. Date optional. Ex: `set Venatus 0721 1430` or `set Venatus 1430`',
+    '`miss <bossname>` — Mark missed. Only works with active timer. Adds 5 min penalty.',
+    '`clear <bossname>` — Clear boss timer.',
+    '`bl` — Boss list. Shows all bosses with remaining time and spawn date/time.',
+    '`ut` — Today & tomorrow bosses sorted by remaining time.',
+    '`reset_tracker` — Reset all interval boss timers.',
+    '`astra help` — Show this help (or just `astra`).',
+    '`/setup` — Configure notification channels.',
+    '`/astra` — Show this help (slash version).',
+    '`/import` — Import boss timers from paste data.',
+    '',
+    '**🇰🇷 한국어**',
+    '`처치 <보스명>` — 보스 처치 기록. 현재 JST 시간을 처치 시간으로 저장.',
+    '`설정 <보스명> [월일] <시분>` — 수동 처치 시간. 날짜 생략 가능. 예: `설정 베나투스 0721 1430` 또는 `설정 베나투스 1430`',
+    '`놓침 <보스명>` — 보스 놓침. 활성 타이머 있을 때만 동작. 5분 패널티.',
+    '`초기화 <보스명>` — 보스 타이머 초기화.',
+    '`목록` — 전체 보스 목록. 남은 시간과 출현 시간 표시.',
+    '`곧` — 오늘과 내일 출현 보스를 남은 시간순으로 표시.',
+    '`초기화_전체` — 모든 고정 주기 보스 타이머 초기화.',
+    '`도움` or `도움말` — 도움말 표시.',
+    '`/설정` — 알림 채널을 설정합니다.',
+    '`/도움말` — 모든 명령어 도움말을 표시합니다.',
+    '`/가져오기` — 붙여넣기 데이터에서 보스 타이머를 가져옵니다.',
+    '',
+    '**🇯🇵 日本語**',
+    '`討伐 <ボス名>` — ボス討伐記録。現在のJST時間を討伐時間として保存。',
+    '`設定 <ボス名> [月日] <時分>` — 手動討伐時間。日付省略可。例: `設定 ベナトゥス 0721 1430` 又は `設定 ベナトゥス 1430`',
+    '`逃し <ボス名>` — 取り逃し記録。アクティブタイマー必須。5分ペナルティ。',
+    '`解除 <ボス名>` — ボスタイマーをクリア。',
+    '`一覧` — 全ボス一覧。残り時間と出現時間を表示。',
+    '`まもなく` — 今日と明日の出現ボスを残り時間順に表示。',
+    '`全解除` — 全固定周期ボスタイマーをリセット。',
+    '`へるぷ` — ヘルプを表示。',
+    '`/せってい` — 通知チャンネルを設定します。',
+    '`/へるぷ` — 全コマンドヘルプを表示します。',
+    '`/いんぽーと` — 貼り付けデータからボスタイマーをインポートします。',
+    '',
+    '**💡 Tips / 팁 / ヒント**',
+    '• All times JST | 모든 시간 JST | 全時間 JST',
+    '• Date: MMDD (0721=Jul 21) | 월일 (0721=7월21일) | 月日 (0721=7月21日)',
+    '• Time: HHMM=24h (1430=2:30PM) | 24시간제 (1430=오후2:30) | 24時間制 (1430=14:30)',
+    '• Auto-detect language | 언어 자동 감지 | 言語自動検出',
+    '• `set` date optional, defaults to today | `설정` 날짜 생략 시 오늘 | `設定` 日付省略で今日',
+    '• Notifications have react buttons | 알림 반응 버튼 있음 | 通知にリアクションボタン付き',
+    '• Action on any channel hides all buttons | 모든 채널 버튼 동시 숨김 | 全チャンネル同時非表示',
+    '• `/import` to batch import timers | `/가져오기` 일괄 가져오기 | `/いんぽーと` 一括インポート',
+  ].join('\n');
 }
 
 client.on('messageCreate', async (msg) => {
   if (msg.author.bot) return;
-  const content = msg.content.trim();
+  const content = msg.content.trim().toLowerCase();
   if (!content) return;
+
+  const allowedChannels = Object.values(config.channels).filter(Boolean);
+  if (allowedChannels.length && !allowedChannels.includes(msg.channel.id)) return;
+
+  if (content === 'astra help' || content === 'astra' || content === '도움' || content === '도움말' || content.match(/^astra\s+help$/i)) {
+    return msg.reply(buildDetailedHelp().slice(0, 2000));
+  }
 
   if (content === '/setup' || content.startsWith('/setup ')) {
     return msg.reply('Use `/setup` with Discord slash commands:\n`/setup <en_channel> <ko_channel> <ja_channel> [voice_channel] [voice_lang]`');
   }
 
-  const resolved = resolveCommand(content.split(/\s+/)[0]);
+  const resolved = resolveCommand(msg.content.trim().split(/\s+/)[0]);
   if (resolved || content === '/tracker_commands') {
     await handleCommand(msg);
   }
@@ -671,74 +766,19 @@ client.on('interactionCreate', async (interaction) => {
         config.voiceLang = voiceLang;
         await saveConfig();
         await interaction.deferReply({ ephemeral: true });
-        if (voiceCh) await connectVoice();
         return interaction.editReply({ content: t('setupSuccess', voiceLang) });
       }
       if (isHelp) {
-        const help = [
-          '__**ASTRA BOSS TIMER — 모든 명령어 / 全コマンド / All Commands**__',
-          '',
-          '**🇺🇸 English**',
-          '`kill <bossname>` — Mark boss dead. Records current JST time as kill time.',
-          '`set <bossname> [MMDD] <HHMM>` — Manual kill time. Date optional. Ex: `set Venatus 0721 1430` or `set Venatus 1430`',
-          '`miss <bossname>` — Mark missed. Only works with active timer. Adds 5 min penalty.',
-          '`clear <bossname>` — Clear boss timer.',
-          '`bl` — Boss list. Shows all bosses with remaining time and spawn date/time.',
-          '`bt` — Today & tomorrow bosses sorted by remaining time.',
-          '`reset_tracker` — Reset all interval boss timers.',
-          '`/setup` — Configure notification channels.',
-          '`/astra` — Show this help with all commands.',
-          '`/import` — Import boss timers from paste data.',
-          '',
-          '**🇰🇷 한국어**',
-          '`처치 <보스명>` — 보스 처치 기록. 현재 JST 시간을 처치 시간으로 저장.',
-          '`설정 <보스명> [월일] <시분>` — 수동 처치 시간. 날짜 생략 가능. 예: `설정 베나투스 0721 1430` 또는 `설정 베나투스 1430`',
-          '`놓침 <보스명>` — 보스 놓침. 활성 타이머 있을 때만 동작. 5분 패널티.',
-          '`초기화 <보스명>` — 보스 타이머 초기화.',
-          '`목록` — 전체 보스 목록. 남은 시간과 출현 시간 표시.',
-          '`곧` — 오늘과 내일 출현 보스를 남은 시간순으로 표시.',
-          '`초기화_전체` — 모든 고정 주기 보스 타이머 초기화.',
-          '`/설정` — 알림 채널을 설정합니다.',
-          '`/도움말` — 모든 명령어 도움말을 표시합니다.',
-          '`/가져오기` — 붙여넣기 데이터에서 보스 타이머를 가져옵니다.',
-          '',
-          '**🇯🇵 日本語**',
-          '`討伐 <ボス名>` — ボス討伐記録。現在のJST時間を討伐時間として保存。',
-          '`設定 <ボス名> [月日] <時分>` — 手動討伐時間。日付省略可。例: `設定 ベナトゥス 0721 1430` 又は `設定 ベナトゥス 1430`',
-          '`逃し <ボス名>` — 取り逃し記録。アクティブタイマー必須。5分ペナルティ。',
-          '`解除 <ボス名>` — ボスタイマーをクリア。',
-          '`一覧` — 全ボス一覧。残り時間と出現時間を表示。',
-          '`まもなく` — 今日と明日の出現ボスを残り時間順に表示。',
-          '`全解除` — 全固定周期ボスタイマーをリセット。',
-          '`/せってい` — 通知チャンネルを設定します。',
-          '`/へるぷ` — 全コマンドヘルプを表示します。',
-          '`/いんぽーと` — 貼り付けデータからボスタイマーをインポートします。',
-          '',
-          '**💡 Tips / 팁 / ヒント**',
-          '• All times JST | 모든 시간 JST | 全時間 JST',
-          '• Date: MMDD (0721=Jul 21) | 월일 (0721=7월21일) | 月日 (0721=7月21日)',
-          '• Time: HHMM=24h (1430=2:30PM) | 24시간제 (1430=오후2:30) | 24時間制 (1430=14:30)',
-          '• Auto-detect language | 언어 자동 감지 | 言語自動検出',
-          '• `set` date optional, defaults to today | `설정` 날짜 생략 시 오늘 | `設定` 日付省略で今日',
-          '• Notifications have react buttons | 알림 반응 버튼 있음 | 通知にリアクションボタン付き',
-          '• Action on any channel hides all buttons | 모든 채널 버튼 동시 숨김 | 全チャンネル同時非表示',
-          '• `/import` to batch import timers | `/가져오기` 일괄 가져오기 | `/いんぽーと` 一括インポート',
-        ];
-        return interaction.reply({ content: help.join('\n').slice(0, 2000), ephemeral: true });
+        return interaction.reply({ content: buildDetailedHelp().slice(0, 2000), ephemeral: true });
       }
     return;
   }
 
   const lang = detectLang(interaction.message.content);
   const customId = interaction.customId;
-  const [action] = customId.split('_');
-
-  let bossId = null;
-  try {
-    const notifs = await db.collection('notifications')
-      .where(lang, '==', interaction.message.id).limit(1).get();
-    if (!notifs.empty) bossId = notifs.docs[0].data().bossId;
-  } catch (e) {}
+  const parts = customId.split('_');
+  const action = parts[0];
+  const bossId = parts.slice(1).join('_');
 
   if (!bossId) { interaction.deferUpdate().catch(() => {}); return; }
   const boss = BOSSES_DATA.find(b => b.id === bossId);
@@ -755,10 +795,14 @@ client.on('interactionCreate', async (interaction) => {
     await saveTimers();
     await addHistory(boss.id, 'killed', now);
     const user = interaction.user.toString();
+    const nextStrEn = formatJST(endTime, 'en');
+    const nextStrKo = formatJST(endTime, 'ko');
+    const nextStrJa = formatJST(endTime, 'ja');
     await sendAllNotifs(
-      `**${bossName(bossId, 'en')}** ${t('killed', 'en')} ${t('byUser', 'en')} ${user}`,
-      `**${bossName(bossId, 'ko')}** ${t('killed', 'ko')} ${t('byUser', 'ko')} ${user}`,
-      `**${bossName(bossId, 'ja')}** ${t('killed', 'ja')} ${t('byUser', 'ja')} ${user}`
+      `**${bossName(bossId, 'en')}** ${t('defeated', 'en')}\n${t('killTime', 'en')}: ${formatJST(now, 'en')}\n${t('nextRespawn', 'en')}: ${nextStrEn}\n${t('byUser', 'en')} ${user}`,
+      `**${bossName(bossId, 'ko')}** ${t('defeated', 'ko')}\n${t('killTime', 'ko')}: ${formatJST(now, 'ko')}\n${t('nextRespawn', 'ko')}: ${nextStrKo}\n${t('byUser', 'ko')} ${user}`,
+      `**${bossName(bossId, 'ja')}** ${t('defeated', 'ja')}\n${t('killTime', 'ja')}: ${formatJST(now, 'ja')}\n${t('nextRespawn', 'ja')}: ${nextStrJa}\n${t('byUser', 'ja')} ${user}`,
+      bossId
     );
     speakDefeated(bossId, endTime);
     return;
@@ -775,10 +819,14 @@ client.on('interactionCreate', async (interaction) => {
     await saveTimers();
     await addHistory(boss.id, 'missed', now);
     const user = interaction.user.toString();
+    const nextStrEn = formatJST(endTime, 'en');
+    const nextStrKo = formatJST(endTime, 'ko');
+    const nextStrJa = formatJST(endTime, 'ja');
     await sendAllNotifs(
-      `**${bossName(bossId, 'en')}** ${t('missed', 'en')} ${t('byUser', 'en')} ${user}`,
-      `**${bossName(bossId, 'ko')}** ${t('missed', 'ko')} ${t('byUser', 'ko')} ${user}`,
-      `**${bossName(bossId, 'ja')}** ${t('missed', 'ja')} ${t('byUser', 'ja')} ${user}`
+      `**${bossName(bossId, 'en')}** ${t('missed', 'en')}\n${t('killTime', 'en')}: ${formatJST(killedAt, 'en')}\n${t('nextRespawn', 'en')}: ${nextStrEn}\n${t('byUser', 'en')} ${user}`,
+      `**${bossName(bossId, 'ko')}** ${t('missed', 'ko')}\n${t('killTime', 'ko')}: ${formatJST(killedAt, 'ko')}\n${t('nextRespawn', 'ko')}: ${nextStrKo}\n${t('byUser', 'ko')} ${user}`,
+      `**${bossName(bossId, 'ja')}** ${t('missed', 'ja')}\n${t('killTime', 'ja')}: ${formatJST(killedAt, 'ja')}\n${t('nextRespawn', 'ja')}: ${nextStrJa}\n${t('byUser', 'ja')} ${user}`,
+      bossId
     );
     return;
   }
@@ -788,7 +836,47 @@ client.once('ready', async () => {
   console.log(`✅ Bot logged in as ${client.user.tag}`);
   await loadConfig();
   await loadTimers();
-  connectVoice();
+
+  // Clean up orphaned notifications from previous sessions
+  try {
+    const snapshot = await db.collection('notifications').where('type', '==', 'spawning').get();
+    for (const doc of snapshot.docs) {
+      const data = doc.data();
+      const timer = timers[data.bossId];
+      const docEndTime = parseInt(doc.id.split('_').pop());
+      if (!docEndTime) continue;
+      if (timer && timer.endTime === docEndTime) {
+        // Still active — repopulate cache
+        const msgs = {};
+        for (const l of LANG_LIST) {
+          if (data[l] && config.channels[l]) {
+            const channel = client.channels.cache.get(config.channels[l]);
+            if (channel) {
+              try { msgs[l] = await channel.messages.fetch(data[l]); } catch {}
+            }
+          }
+        }
+        if (msgs.en || msgs.ko || msgs.ja) notifMessageCache.set(data.bossId, msgs);
+      } else {
+        // Orphan — remove buttons
+        for (const l of LANG_LIST) {
+          if (data[l] && config.channels[l]) {
+            const channel = client.channels.cache.get(config.channels[l]);
+            if (channel) {
+              try {
+                const msg = await channel.messages.fetch(data[l]);
+                await msg.edit({ components: [] });
+              } catch {}
+            }
+          }
+        }
+        await doc.ref.delete();
+      }
+    }
+  } catch (e) {
+    console.error('Notification cleanup error:', e);
+  }
+
   startNotifLoop();
 
   const commands = [{
@@ -837,5 +925,6 @@ client.once('ready', async () => {
 });
 
 client.login(process.env.DISCORD_TOKEN);
+
 
 
