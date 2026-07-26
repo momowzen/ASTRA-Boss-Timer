@@ -285,6 +285,7 @@ async function removeBossReactions(bossId) {
 function resetBossCycle(bossId) {
   for (const key of [...sentSoonNotifs]) { if (key.startsWith(bossId + '_')) sentSoonNotifs.delete(key); }
   for (const key of [...sentSpawnedNotifs]) { if (key.startsWith(bossId + '_')) sentSpawnedNotifs.delete(key); }
+  notifMessageCache.delete(bossId);
 }
 
 function speakDefeated(bossId, nextRespawnTime) {
@@ -604,14 +605,14 @@ function startNotifLoop() {
             if (cached.ja) edits.push(cached.ja.edit({ content: `**${bossName(id, 'ja')}** ${t('spawned', 'ja')}`, components: cached.ja.components }).catch(() => {}));
             await Promise.all(edits);
           } else {
-            const msgs2 = await sendAllNotifs(
+            await sendAllNotifs(
               `**${bossName(id, 'en')}** ${t('spawned', 'en')}`,
               `**${bossName(id, 'ko')}** ${t('spawned', 'ko')}`,
               `**${bossName(id, 'ja')}** ${t('spawned', 'ja')}`,
               false
             );
-            if (msgs2.en || msgs2.ko || msgs2.ja) notifMessageCache.set(id, msgs2);
           }
+          notifMessageCache.delete(id);
         }
         } catch (e) { /* skip failed boss, continue loop */ }
       }
