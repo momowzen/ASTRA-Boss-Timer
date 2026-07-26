@@ -920,6 +920,10 @@ client.once('ready', async () => {
 
 });
 
+import { createServer } from 'http';
+const server = createServer((_, res) => { res.writeHead(200); res.end('OK'); });
+server.listen(process.env.PORT || 8080);
+
 client.login(process.env.DISCORD_TOKEN);
 
 
