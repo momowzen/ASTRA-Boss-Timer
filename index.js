@@ -5,6 +5,7 @@ import { getAudioBase64 } from 'google-tts-api';
 import { Readable } from 'stream';
 import admin from 'firebase-admin';
 import { readFileSync } from 'fs';
+import { createServer } from 'http';
 import { BOSSES_DATA, TZ_OFFSET, LANG_LIST, t, bossName } from './translations.js';
 
 const client = new Client({
@@ -920,9 +921,9 @@ client.once('ready', async () => {
 
 });
 
-import { createServer } from 'http';
 const server = createServer((_, res) => { res.writeHead(200); res.end('OK'); });
-server.listen(process.env.PORT || 8080);
+const PORT = process.env.PORT || 8080;
+server.listen(PORT, '0.0.0.0', () => console.log(`Health check server on port ${PORT}`));
 
 client.login(process.env.DISCORD_TOKEN);
 
