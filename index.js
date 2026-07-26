@@ -918,11 +918,6 @@ client.once('ready', async () => {
     console.error('Slash command registration error:', e);
   }
 
-  const timersUnsub = db.collection('timers').doc('global').onSnapshot(doc => {
-    if (doc.exists) {
-      timers = doc.data().timers || {};
-    }
-  });
 });
 
 client.login(process.env.DISCORD_TOKEN);
