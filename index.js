@@ -1,5 +1,5 @@
 ﻿import 'dotenv/config';
-import { Client, GatewayIntentBits, Partials, ActionRowBuilder, ButtonBuilder, ButtonStyle, ModalBuilder, TextInputBuilder, TextInputStyle } from 'discord.js';
+import { Client, GatewayIntentBits, Partials, ActionRowBuilder, ButtonBuilder, ButtonStyle, ModalBuilder, TextInputBuilder, TextInputStyle, MessageFlags } from 'discord.js';
 import { joinVoiceChannel, createAudioPlayer, createAudioResource, AudioPlayerStatus, VoiceConnectionStatus, entersState } from '@discordjs/voice';
 import { getAudioBase64 } from 'google-tts-api';
 import { Readable } from 'stream';
@@ -26,7 +26,7 @@ try {
 const db = admin.firestore();
 const TZ = 'Asia/Tokyo';
 
-let config = { channels: { en: null, ko: null, ja: null }, voice: { en: null, ko: null, ja: null }, voiceLang: 'en' };
+let config = { channels: { en: null, ko: null, ja: null }, voice: null, voiceLang: 'en' };
 let timers = {};
 let notifMessageCache = new Map();
 let sentSoonNotifs = new Set();
@@ -58,7 +58,7 @@ let isSpeaking = false;
 let idleTimer = null;
 
 async function connectVoice() {
-  const voiceId = config.voice?.en;
+  const voiceId = config.voice;
   if (!voiceId || voiceConnection) return;
   try {
     const channel = await client.channels.fetch(voiceId);
@@ -94,7 +94,7 @@ function disconnectVoice() {
 }
 
 async function speak(text) {
-  if (!config.voice?.en) return;
+  if (!config.voice) return;
   if (!voiceConnection) await connectVoice();
   if (!voiceConnection || !audioPlayer) return;
   if (idleTimer) { clearTimeout(idleTimer); idleTimer = null; }
@@ -113,7 +113,10 @@ async function speak(text) {
 
 async function loadConfig() {
   const doc = await db.collection('config').doc('discordBot').get();
-  if (doc.exists) config = { ...config, ...doc.data() };
+  if (doc.exists) {
+    config = { ...config, ...doc.data() };
+    if (config.voice && typeof config.voice === 'object') config.voice = config.voice.en || null;
+  }
 }
 
 async function saveConfig() {
@@ -131,7 +134,8 @@ async function saveTimers() {
 }
 
 async function addHistory(bossId, type, timestamp) {
-  db.collection('history').add({ bossId, type, timestamp, killTime: timestamp }).catch(e => console.error('History err:', e));
+  try { await db.collection('history').add({ bossId, type, timestamp }); }
+  catch (e) { console.error('History err:', e); }
 }
 
 function findBoss(query, lang = 'en') {
@@ -732,7 +736,7 @@ client.on('interactionCreate', async (interaction) => {
     }
     for (const id of updatedBosses) removeBossReactions(id).catch(() => {});
     await saveTimers();
-    return interaction.reply({ content: t('importSuccess', interaction.locale?.startsWith('ko') ? 'ko' : interaction.locale?.startsWith('ja') ? 'ja' : 'en'), ephemeral: true });
+    return interaction.reply({ content: t('importSuccess', interaction.locale?.startsWith('ko') ? 'ko' : interaction.locale?.startsWith('ja') ? 'ja' : 'en'), flags: MessageFlags.Ephemeral });
   }
 
   if (interaction.isCommand()) {
@@ -764,14 +768,14 @@ client.on('interactionCreate', async (interaction) => {
         if (enCh) config.channels.en = enCh.id;
         if (koCh) config.channels.ko = koCh.id;
         if (jaCh) config.channels.ja = jaCh.id;
-        if (voiceCh) { config.voice.en = voiceCh.id; config.voice.ko = voiceCh.id; config.voice.ja = voiceCh.id; }
+        if (voiceCh) { config.voice = voiceCh.id; }
         config.voiceLang = voiceLang;
         await saveConfig();
-        await interaction.deferReply({ ephemeral: true });
+        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
         return interaction.editReply({ content: t('setupSuccess', voiceLang) });
       }
       if (isHelp) {
-        return interaction.reply({ content: buildDetailedHelp().slice(0, 2000), ephemeral: true });
+        return interaction.reply({ content: buildDetailedHelp().slice(0, 2000), flags: MessageFlags.Ephemeral });
       }
     return;
   }
@@ -834,7 +838,7 @@ client.on('interactionCreate', async (interaction) => {
   }
 });
 
-client.once('ready', async () => {
+client.once('clientReady', async () => {
   console.log(`✅ Bot logged in as ${client.user.tag}`);
   await loadConfig();
   await loadTimers();
