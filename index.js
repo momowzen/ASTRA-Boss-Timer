@@ -956,6 +956,8 @@ client.once('clientReady', async () => {
     console.error('Slash command registration error:', e);
   }
 
+  client.user.setActivity('/kill /bl /ut', { type: 0 });
+
 });
 
 const server = createServer((_, res) => { res.writeHead(200); res.end('OK'); });
