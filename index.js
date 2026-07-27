@@ -479,15 +479,15 @@ if (cmd === 'bl') {
     const interval = BOSSES_DATA.filter(b => b.respawn);
 
     function buildList(list, title) {
-      const G = '   ', S = 12, R = 12, B = 22, total = S + G.length + R + G.length + B;
-      const header = padL(t('colSpawn', lang), S) + G + padL(t('colRemaining', lang), R) + G + padL(t('colBoss', lang), B);
+      const G = '   ', S = 12, R = 10, B = 20, total = S + G.length + R + G.length + B;
+      const header = padL(t('colSpawn', lang), S) + G + padC(t('colRemaining', lang), R) + G + padR(t('colBoss', lang), B);
       const sep = '-'.repeat(total);
       const lines = ['**' + title + '**', '```', header, sep];
       for (const boss of list) {
         const next = getNextSpawn(boss);
         const remaining = next ? formatRemaining(next.getTime() - Date.now()) : '---';
         const spawnStr = next ? formatSpawnTime(next.getTime()) : '---';
-        lines.push(padL(spawnStr, S) + G + padL(remaining, R) + G + padL(bossName(boss.id, lang), B));
+        lines.push(padL(spawnStr, S) + G + padC(remaining, R) + G + padR(bossName(boss.id, lang), B));
       }
       lines.push('```');
       return lines.join('\n');
@@ -511,13 +511,13 @@ if (cmd === 'bl') {
     }
     if (bosses.length === 0) return msg.reply(t('noActiveBosses', lang));
     bosses.sort((a, b) => a.time - b.time);
-    const G = '   ', S = 12, R = 12, B = 22, total = S + G.length + R + G.length + B;
-    const header = padL(t('colSpawn', lang), S) + G + padL(t('colRemaining', lang), R) + G + padL(t('colBoss', lang), B);
+    const G = '   ', S = 12, R = 10, B = 20, total = S + G.length + R + G.length + B;
+    const header = padL(t('colSpawn', lang), S) + G + padC(t('colRemaining', lang), R) + G + padR(t('colBoss', lang), B);
     const sep = '-'.repeat(total);
     const lines = ['**📅 ' + t('upcomingField', lang) + '**', '```', header, sep];
     for (const { boss, time } of bosses) {
       const remaining = formatRemaining(time - now);
-      lines.push(padL(formatSpawnTime(time), S) + G + padL(remaining, R) + G + padL(bossName(boss.id, lang), B));
+      lines.push(padL(formatSpawnTime(time), S) + G + padC(remaining, R) + G + padR(bossName(boss.id, lang), B));
     }
     lines.push('```');
     return msg.reply(lines.join('\n'));
