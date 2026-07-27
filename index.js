@@ -644,6 +644,7 @@ function buildDetailedHelp() {
     '`/setup` — Configure notification channels.',
     '`/astra` — Show this help (slash version).',
     '`/import` — Import boss timers from paste data.',
+    '`/export` — Export all boss timers as text.',
     '',
     '**🇰🇷 한국어**',
     '`처치 <보스명>` — 보스 처치 기록. 현재 JST 시간을 처치 시간으로 저장.',
@@ -657,6 +658,7 @@ function buildDetailedHelp() {
     '`/설정` — 알림 채널을 설정합니다.',
     '`/도움말` — 모든 명령어 도움말을 표시합니다.',
     '`/가져오기` — 붙여넣기 데이터에서 보스 타이머를 가져옵니다.',
+    '`/내보내기` — 모든 보스 타이머를 텍스트로 내보냅니다.',
     '',
     '**🇯🇵 日本語**',
     '`討伐 <ボス名>` — ボス討伐記録。現在のJST時間を討伐時間として保存。',
@@ -670,6 +672,7 @@ function buildDetailedHelp() {
     '`/せってい` — 通知チャンネルを設定します。',
     '`/へるぷ` — 全コマンドヘルプを表示します。',
     '`/いんぽーと` — 貼り付けデータからボスタイマーをインポートします。',
+    '`/エクスポート` — 全ボスタイマーをテキストでエクスポートします。',
     '',
     '**💡 Tips / 팁 / ヒント**',
     '• All times JST | 모든 시간 JST | 全時間 JST',
@@ -680,6 +683,7 @@ function buildDetailedHelp() {
     '• Notifications have react buttons | 알림 반응 버튼 있음 | 通知にリアクションボタン付き',
     '• Action on any channel hides all buttons | 모든 채널 버튼 동시 숨김 | 全チャンネル同時非表示',
     '• `/import` to batch import timers | `/가져오기` 일괄 가져오기 | `/いんぽーと` 一括インポート',
+    '• `/export` to export all timers | `/내보내기` 모든 타이머 내보내기 | `/エクスポート` 全タイマー出力',
   ].join('\n');
 }
 
@@ -744,6 +748,7 @@ client.on('interactionCreate', async (interaction) => {
     const isSetup = cmdName === 'setup' || cmdName === '설정' || cmdName === 'せってい';
     const isHelp = cmdName === 'astra' || cmdName === 'tracker_commands' || cmdName === '도움말' || cmdName === 'へるぷ';
     const isImport = cmdName === 'import' || cmdName === '가져오기' || cmdName === 'いんぽーと';
+    const isExport = cmdName === 'export' || cmdName === '내보내기' || cmdName === 'エクスポート';
 
     if (isImport) {
       const modal = new ModalBuilder()
@@ -756,6 +761,29 @@ client.on('interactionCreate', async (interaction) => {
         .setRequired(true);
       modal.addComponents(new ActionRowBuilder().addComponents(input));
       return interaction.showModal(modal);
+    }
+
+    if (isExport) {
+      const now = Date.now();
+      const lines = [];
+      for (const boss of BOSSES_DATA) {
+        const info = timers[boss.id];
+        let spawnTime = info?.endTime;
+        if (!spawnTime && boss.weeklyRespawns) {
+          const next = getNextSpawn(boss);
+          if (next) spawnTime = next.getTime();
+        }
+        if (!spawnTime) continue;
+        const remainingMs = spawnTime - now;
+        const s = Math.max(0, Math.floor(remainingMs / 1000));
+        const h = Math.floor(s / 3600);
+        const m = Math.floor((s % 3600) / 60);
+        const d = new Date(spawnTime + TZ_OFFSET);
+        const dateStr = `${d.getUTCMonth() + 1}/${d.getUTCDate()}, ${String(d.getUTCHours()).padStart(2, '0')}:${String(d.getUTCMinutes()).padStart(2, '0')}`;
+        lines.push(`${bossName(boss.id, 'en')} - ${h}h ${m}m ${dateStr} JST`);
+      }
+      const content = lines.length ? `\`\`\`\n${lines.join('\n')}\n\`\`\`` : t('noActiveBosses', 'en');
+      return interaction.reply({ content, flags: MessageFlags.Ephemeral });
     }
 
     if (isSetup) {
@@ -914,6 +942,11 @@ client.once('clientReady', async () => {
     nameLocalizations: { ko: '가져오기', ja: 'いんぽーと' },
     description: 'Import boss timers from paste data',
     descriptionLocalizations: { ko: '붙여넣기 데이터에서 보스 타이머 가져오기', ja: '貼り付けデータからボスタイマーをインポート' }
+  }, {
+    name: 'export',
+    nameLocalizations: { ko: '내보내기', ja: 'エクスポート' },
+    description: 'Export all boss timers as text',
+    descriptionLocalizations: { ko: '모든 보스 타이머를 텍스트로 내보내기', ja: '全ボスタイマーをテキストでエクスポート' }
   }];
 
   try {
