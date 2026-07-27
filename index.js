@@ -956,7 +956,7 @@ client.once('clientReady', async () => {
     console.error('Slash command registration error:', e);
   }
 
-  client.user.setActivity('astra / 도움 / へるぷ — Show help', { type: 0 });
+  client.user.setActivity('astra / 도움 / へるぷ — Show help / 도움말 표시 / ヘルプを表示', { type: 0 });
 
 });
 
