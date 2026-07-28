@@ -890,7 +890,10 @@ client.once('clientReady', async () => {
             }
           }
         }
-        if (msgs.en || msgs.ko || msgs.ja) notifMessageCache.set(data.bossId, msgs);
+        if (msgs.en || msgs.ko || msgs.ja) {
+          notifMessageCache.set(data.bossId, msgs);
+          sentSoonNotifs.add(`${data.bossId}_${docEndTime}`);
+        }
       } else {
         // Orphan — remove buttons
         for (const l of LANG_LIST) {
