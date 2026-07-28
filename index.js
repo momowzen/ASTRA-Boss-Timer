@@ -625,7 +625,16 @@ function startNotifLoop() {
       console.error('Notif loop error:', e);
     }
   }, 3000);
-  setInterval(() => { sentSoonNotifs.clear(); sentSpawnedNotifs.clear(); ttsSpokenMinutes.clear(); }, 3600000);
+  setInterval(() => {
+    const now = Date.now();
+    for (const set of [sentSoonNotifs, sentSpawnedNotifs]) {
+      for (const key of set) {
+        const ts = parseInt(key.split('_').pop());
+        if (ts && ts < now - 300000) set.delete(key);
+      }
+    }
+    ttsSpokenMinutes.clear();
+  }, 3600000);
 }
 
 function buildDetailedHelp() {
