@@ -56,7 +56,8 @@ const LANG = {
       Secreta: "Secreta", Ordo: "Ordo", Asta: "Asta", Supore: "Supore",
       Chaiflock: "Chaiflock", Benji: "Benji", Libitina: "Libitina",
       Rakajeth: "Rakajeth", Icaruthia: "Icaruthia", Motti: "Motti",
-      Camalia: "Camalia", Nevaeh: "Nevaeh", Tumier: "Tumier",       Lucus: "Lucus"
+      Camalia: "Camalia", Nevaeh: "Nevaeh", Tumier: "Tumier",       Lucus: "Lucus",
+      Test: "Test"
     }
   },
   ko: {
@@ -116,7 +117,8 @@ const LANG = {
       Secreta: "세크레타", Ordo: "오르도", Asta: "아스타", Supore: "스포르",
       Chaiflock: "샤이플록", Benji: "벤지", Libitina: "리비티나",
       Rakajeth: "라카제스", Icaruthia: "이카루시아", Motti: "모티",
-      Camalia: "카말리아", Nevaeh: "네바", Tumier: "투미엘",       Lucus: "루크스"
+      Camalia: "카말리아", Nevaeh: "네바", Tumier: "투미엘",       Lucus: "루크스",
+      Test: "테스트"
     }
   },
   ja: {
@@ -176,7 +178,8 @@ const LANG = {
       Secreta: "セクレタ", Ordo: "オルド", Asta: "アスタ", Supore: "スポル",
       Chaiflock: "シャイフロック", Benji: "ベンジー", Libitina: "リビティーナ",
       Rakajeth: "ラカゼス", Icaruthia: "イカルシア", Motti: "モティ",
-      Camalia: "カマリア", Nevaeh: "ネバ", Tumier: "トゥミエル",       Lucus: "ルクス"
+      Camalia: "カマリア", Nevaeh: "ネバ", Tumier: "トゥミエル",       Lucus: "ルクス",
+      Test: "テスト"
     }
   }
 };
@@ -221,7 +224,8 @@ const BOSSES_DATA = [
   { id: "Camalia", name: "Camalia", level: 135, weeklyRespawns: [{ day: 4, hour: 22, minute: 0 }] },
   { id: "Nevaeh", name: "Nevaeh", level: 140, weeklyRespawns: [{ day: 0, hour: 23, minute: 0 }] },
   { id: "Tumier", name: "Tumier", level: 140, weeklyRespawns: [{ day: 0, hour: 20, minute: 0 }] },
-  { id: "Lucus", name: "Lucus", level: 145, weeklyRespawns: [{ day: 6, hour: 23, minute: 0 }] }
+  { id: "Lucus", name: "Lucus", level: 145, weeklyRespawns: [{ day: 6, hour: 23, minute: 0 }] },
+  { id: "Test", name: "Test", level: 1, respawn: 305 }
 ];
 
 const TZ_OFFSET = 9 * 60 * 60 * 1000;
