@@ -738,17 +738,6 @@ function buildDetailedHelp() {
     '`/へるぷ` — 全コマンドヘルプを表示します。',
     '`/いんぽーと` — 貼り付けデータからボスタイマーをインポートします。',
     '`/エクスポート` — 全ボスタイマーをテキストでエクスポートします。',
-    '',
-    '**💡 Tips / 팁 / ヒント**',
-    '• All times JST | 모든 시간 JST | 全時間 JST',
-    '• Date: MMDD (0721=Jul 21) | 월일 (0721=7월21일) | 月日 (0721=7月21日)',
-    '• Time: HHMM=24h (1430=2:30PM) | 24시간제 (1430=오후2:30) | 24時間制 (1430=14:30)',
-    '• Auto-detect language | 언어 자동 감지 | 言語自動検出',
-    '• `set` date optional, defaults to today | `설정` 날짜 생략 시 오늘 | `設定` 日付省略で今日',
-    '• Notifications have react buttons | 알림 반응 버튼 있음 | 通知にリアクションボタン付き',
-    '• Action on any channel hides all buttons | 모든 채널 버튼 동시 숨김 | 全チャンネル同時非表示',
-    '• `/import` to batch import timers | `/가져오기` 일괄 가져오기 | `/いんぽーと` 一括インポート',
-    '• `/export` to export all timers | `/내보내기` 모든 타이머 내보내기 | `/エクスポート` 全タイマー出力',
   ].join('\n');
 }
 
