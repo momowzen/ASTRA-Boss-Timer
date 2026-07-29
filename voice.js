@@ -1,10 +1,16 @@
 import { joinVoiceChannel, createAudioPlayer, createAudioResource, AudioPlayerStatus, VoiceConnectionStatus, entersState } from '@discordjs/voice';
-import { getAudioBase64 } from 'google-tts-api';
 import { Readable } from 'stream';
 
 let client, config, bossNameFn, TZ, TZ_OFFSET;
 let TTS_SPAWN_IN, TTS_SPAWNED, TTS_DEFEATED;
 let WORLD_BOSS_TIMES, TTS_WORLD_BOSS_IN, TTS_WORLD_BOSS_SPAWNED;
+
+const EDGE_TTS_URL = process.env.EDGE_TTS_URL || 'http://localhost:5050';
+const EDGE_VOICES = {
+  en: 'en-US-AvaNeural',
+  ko: 'ko-KR-SunHiNeural',
+  ja: 'ja-JP-NanamiNeural',
+};
 
 let audioPlayer = null;
 let voiceConnection = null;
@@ -77,8 +83,14 @@ export async function speak(text) {
   isSpeaking = true;
   try {
     const lang = config.voiceLang || 'en';
-    const base64 = await getAudioBase64(text, { lang, slow: false });
-    const stream = Readable.from(Buffer.from(base64, 'base64'));
+    const voice = EDGE_VOICES[lang] || EDGE_VOICES.en;
+    const response = await fetch(`${EDGE_TTS_URL}/v1/audio/speech`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ input: text, voice, response_format: 'mp3', speed: 1.0 }),
+    });
+    if (!response.ok) throw new Error(`Edge TTS returned ${response.status}`);
+    const stream = Readable.fromWeb(response.body);
     audioPlayer.play(createAudioResource(stream));
   } catch (e) { console.error('[TTS] error:', e.message); isSpeaking = false; }
 }
