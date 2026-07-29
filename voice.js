@@ -1,11 +1,18 @@
 import { joinVoiceChannel, createAudioPlayer, createAudioResource, AudioPlayerStatus, VoiceConnectionStatus, entersState } from '@discordjs/voice';
 import { Readable } from 'stream';
+import { execFile } from 'child_process';
+import { promisify } from 'util';
+import { tmpdir } from 'os';
+import { join } from 'path';
+import { readFile, unlink } from 'fs/promises';
+import { randomUUID } from 'crypto';
+
+const execFileAsync = promisify(execFile);
 
 let client, config, bossNameFn, TZ, TZ_OFFSET;
 let TTS_SPAWN_IN, TTS_SPAWNED, TTS_DEFEATED;
 let WORLD_BOSS_TIMES, TTS_WORLD_BOSS_IN, TTS_WORLD_BOSS_SPAWNED;
 
-const EDGE_TTS_URL = process.env.EDGE_TTS_URL || 'http://localhost:5050';
 const EDGE_VOICES = {
   en: 'en-US-AvaNeural',
   ko: 'ko-KR-SunHiNeural',
@@ -84,14 +91,18 @@ export async function speak(text) {
   try {
     const lang = config.voiceLang || 'en';
     const voice = EDGE_VOICES[lang] || EDGE_VOICES.en;
-    const response = await fetch(`${EDGE_TTS_URL}/v1/audio/speech`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ input: text, voice, response_format: 'mp3', speed: 1.0 }),
-    });
-    if (!response.ok) throw new Error(`Edge TTS returned ${response.status}`);
-    const buffer = Buffer.from(await response.arrayBuffer());
-    audioPlayer.play(createAudioResource(Readable.from(buffer)));
+    const tmpFile = join(tmpdir(), `tts-${randomUUID()}.mp3`);
+    try {
+      await execFileAsync('edge-tts', [
+        '--text', text,
+        '--voice', voice,
+        '--write-media', tmpFile,
+      ], { timeout: 20000 });
+      const data = await readFile(tmpFile);
+      audioPlayer.play(createAudioResource(Readable.from(data)));
+    } finally {
+      await unlink(tmpFile).catch(() => {});
+    }
   } catch (e) { console.error('[TTS] error:', e.message); isSpeaking = false; }
 }
 
