@@ -347,7 +347,7 @@ client.once('clientReady', async () => {
           { name: 'Japanese', value: 'ja' }
         ]
       },
-      { name: 'ping_here', description: '@here ping on spawn warnings', type: 5, required: false, descriptionLocalizations: { ko: '출현 알림 @here 멘션', ja: '出現通知で@hereメンション' } }
+      { name: 'ping_here', nameLocalizations: { ko: '여기_멘션', ja: 'ここメンション' }, description: '@here ping on spawn warnings', type: 5, required: false, descriptionLocalizations: { ko: '출현 알림 @here 멘션', ja: '出現通知で@hereメンション' } }
     ]
   }, {
     name: 'astra',
