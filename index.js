@@ -379,7 +379,7 @@ client.once('clientReady', async () => {
     console.error('Slash command registration error:', e);
   }
 
-  client.user.setActivity('astra / 도움 / へるぷ — Show help / 도움말 표시 / ヘルプを表示', { type: 0 });
+  client.user.setActivity('📖 ASTRA Help: astra | 도움말 | へるぷ', { type: 0 });
 });
 
 const server = createServer((_, res) => { res.writeHead(200); res.end('OK'); });
