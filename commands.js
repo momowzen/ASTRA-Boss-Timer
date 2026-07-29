@@ -50,6 +50,8 @@ export function buildDetailedHelp() {
     '**🇺🇸 English**',
     '**kill <bossname>** — Mark boss dead. Records current JST time as kill time.',
     '**set <bossname> [MMDD] <HHMM>** — Manual kill time. Date optional. Ex: `set Venatus 0721 1430` or `set Venatus 1430`',
+    '**<bossname> <HHMM>** — Shorthand: set kill time today. Ex: `Venatus 1430`',
+    '**<bossname> <MMDD> <HHMM>** — Shorthand: set kill time with date. Ex: `Venatus 0730 1430`',
     '**miss <bossname>** — Mark missed. Only works with active timer. Adds 5 min penalty.',
     '**clear <bossname>** — Clear boss timer.',
     '**bl** — Boss list. Shows all bosses with remaining time and spawn date/time.',
@@ -65,6 +67,8 @@ export function buildDetailedHelp() {
     '**🇰🇷 한국어**',
     '**처치 <보스명>** — 보스 처치 기록. 현재 JST 시간을 처치 시간으로 저장.',
     '**설정 <보스명> [월일] <시분>** — 수동 처치 시간. 날짜 생략 가능. 예: `설정 베나투스 0721 1430` 또는 `설정 베나투스 1430`',
+    '**<보스명> <시분>** — 간편 입력: 오늘의 처치 시간 설정. 예: `베나투스 1430`',
+    '**<보스명> <월일> <시분>** — 간편 입력: 날짜 포함 처치 시간. 예: `베나투스 0730 1430`',
     '**놓침 <보스명>** — 보스 놓침. 활성 타이머 있을 때만 동작. 5분 패널티.',
     '**초기화 <보스명>** — 보스 타이머 초기화.',
     '**목록** — 전체 보스 목록. 남은 시간과 출현 시간 표시.',
@@ -80,6 +84,8 @@ export function buildDetailedHelp() {
     '**🇯🇵 日本語**',
     '**討伐 <ボス名>** — ボス討伐記録。現在のJST時間を討伐時間として保存。',
     '**設定 <ボス名> [月日] <時分>** — 手動討伐時間。日付省略可。例: `設定 ベナトゥス 0721 1430` 又は `設定 ベナトゥス 1430`',
+    '**<ボス名> <時分>** — 省略形: 今日の討伐時間を設定。例: `ベナトゥス 1430`',
+    '**<ボス名> <月日> <時分>** — 省略形: 日付付き討伐時間。例: `ベナトゥス 0730 1430`',
     '**逃し <ボス名>** — 取り逃し記録。アクティブタイマー必須。5分ペナルティ。',
     '**解除 <ボス名>** — ボスタイマーをクリア。',
     '**一覧** — 全ボス一覧。残り時間と出現時間を表示。',
@@ -102,9 +108,9 @@ export async function handleCommand(msg) {
     const lower = raw.toLowerCase();
     return CMD_MAP[lower] || null;
   })(parts[0]);
-  if (!resolved) return;
-  const cmd = resolved.id;
-  if (!(resolved.lang === lang || resolved.lang === 'en' || parts[0].toLowerCase() === CMD_ALIAS[cmd]?.en)) return;
+
+  if (resolved && (resolved.lang === lang || resolved.lang === 'en' || parts[0].toLowerCase() === CMD_ALIAS[resolved.id]?.en)) {
+    const cmd = resolved.id;
 
   if (cmd === 'kill' && parts.length >= 2) {
     const query = parts.slice(1).join(' ');
@@ -268,6 +274,39 @@ export async function handleCommand(msg) {
     }
     help.push(`\`/setup\` — ${tFn('setupDesc', lang)}`);
     return msg.reply(help.join('\n').slice(0, 1900));
+  }
+  }
+
+  if (!resolved && parts.length >= 2 && parts.length <= 3 && !parts[0].startsWith('/')) {
+    const boss = findBossFn(parts[0], lang);
+    if (boss && !boss.weeklyRespawns) {
+      let dateStr = null, timeStr;
+      if (parts.length === 2) { timeStr = parts[1]; }
+      else { dateStr = parts[1]; timeStr = parts[2]; }
+      const hour = parseInt(timeStr.slice(0, 2));
+      const minute = parseInt(timeStr.slice(2, 4));
+      if (isNaN(hour) || isNaN(minute)) return msg.reply(tFn('invalidTime', lang));
+      const now = new Date();
+      let killedAt;
+      if (dateStr) {
+        const month = parseInt(dateStr.slice(0, 2));
+        const day = parseInt(dateStr.slice(2, 4));
+        killedAt = new Date(now.getFullYear(), month - 1, day, hour, minute).getTime();
+      } else {
+        const jstNow = new Date(now.getTime() + TZ_OFFSET);
+        killedAt = new Date(Date.UTC(jstNow.getUTCFullYear(), jstNow.getUTCMonth(), jstNow.getUTCDate(), hour, minute)).getTime() - TZ_OFFSET;
+      }
+      if (isNaN(killedAt)) return msg.reply(tFn('invalidDate', lang));
+      if (killedAt > Date.now()) return msg.reply(tFn('futureTime', lang));
+      const endTime = killedAt + boss.respawn * 1000;
+      timers[boss.id] = { endTime, startedAt: killedAt };
+      resetBossCycleFn(boss.id);
+      removeBossReactionsFn(boss.id).catch(() => {});
+      await saveTimersFn();
+      await addHistoryFn(boss.id, 'killed', killedAt);
+      await announceKill(boss.id, killedAt, endTime, 'manualSet', msg.author.toString());
+      return;
+    }
   }
 }
 
