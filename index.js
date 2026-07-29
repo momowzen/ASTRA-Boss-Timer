@@ -380,3 +380,5 @@ const PORT = process.env.PORT || 8080;
 server.listen(PORT, '0.0.0.0', () => console.log(`Health check server on port ${PORT}`));
 
 client.login(process.env.DISCORD_TOKEN);
+
+
