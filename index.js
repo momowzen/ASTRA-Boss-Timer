@@ -233,8 +233,14 @@ client.on('messageCreate', async (msg) => {
   const allowedChannels = Object.values(config.channels).filter(Boolean);
   if (allowedChannels.length && !allowedChannels.includes(msg.channel.id)) return;
 
-  if (content === 'astra help' || content === 'astra' || content === '도움' || content === '도움말' || content.match(/^astra\s+help$/i)) {
-    return msg.reply(buildDetailedHelp().slice(0, 2000));
+  if (content === 'astra help' || content === 'astra' || content.match(/^astra\s+help$/i)) {
+    return msg.reply(buildDetailedHelp('en').slice(0, 2000));
+  }
+  if (content === '도움' || content === '도움말') {
+    return msg.reply(buildDetailedHelp('ko').slice(0, 2000));
+  }
+  if (content === 'へるぷ') {
+    return msg.reply(buildDetailedHelp('ja').slice(0, 2000));
   }
 
   if (content === '/setup' || content.startsWith('/setup ')) {

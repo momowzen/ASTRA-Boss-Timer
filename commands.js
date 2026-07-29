@@ -76,59 +76,106 @@ function applySet(boss, dateStr, timeStr, user, lang) {
   return { ok: true, killedAt, endTime };
 }
 
-export function buildDetailedHelp() {
-  return [
-    '**🇺🇸 English**',
-    '**kill <bossname>** — Mark boss dead. Records current JST time as kill time.',
-    '**set <bossname> [MMDD] <HHMM>** — Manual kill time. Date optional. Ex: `set Venatus 0721 1430` or `set Venatus 1430`',
-    '**<bossname> <HHMM>** — Shorthand: set kill time today. Ex: `Venatus 1430`',
-    '**<bossname> <MMDD> <HHMM>** — Shorthand: set kill time with date. Ex: `Venatus 0730 1430`',
-    '**miss <bossname>** — Mark missed. Only works with active timer. Adds 5 min penalty.',
-    '**clear <bossname>** — Clear boss timer.',
-    '**bl** — Boss list. Shows all bosses with remaining time and spawn date/time.',
-    '**ut** — Today & tomorrow bosses sorted by remaining time.',
-    '**reset_tracker confirm** — Reset all interval boss timers.',
-    '**astra help** — Show this help (or just `astra`).',
-    '**/setup** — Configure notification channels.',
-    '**/setup ping_here:True** — Enable @here on spawn warnings.',
-    '**/astra** — Show this help (slash version).',
-    '**/import** — Import boss timers from paste data.',
-    '**/export** — Export all boss timers as text.',
-    '',
-    '**🇰🇷 한국어**',
-    '**처치 <보스명>** — 보스 처치 기록. 현재 JST 시간을 처치 시간으로 저장.',
-    '**설정 <보스명> [월일] <시분>** — 수동 처치 시간. 날짜 생략 가능. 예: `설정 베나투스 0721 1430` 또는 `설정 베나투스 1430`',
-    '**<보스명> <시분>** — 간편 입력: 오늘의 처치 시간 설정. 예: `베나투스 1430`',
-    '**<보스명> <월일> <시분>** — 간편 입력: 날짜 포함 처치 시간. 예: `베나투스 0730 1430`',
-    '**놓침 <보스명>** — 보스 놓침. 활성 타이머 있을 때만 동작. 5분 패널티.',
-    '**초기화 <보스명>** — 보스 타이머 초기화.',
-    '**목록** — 전체 보스 목록. 남은 시간과 출현 시간 표시.',
-    '**곧** — 오늘과 내일 출현 보스를 남은 시간순으로 표시.',
-    '**초기화_전체 확인** — 모든 고정 주기 보스 타이머 초기화.',
-    '**도움** or **도움말** — 도움말 표시.',
-    '**/설정** — 알림 채널을 설정합니다.',
-    '**/설정 ping_here:True** — 출현 알림에 @here 활성화.',
-    '**/도움말** — 모든 명령어 도움말을 표시합니다.',
-    '**/가져오기** — 붙여넣기 데이터에서 보스 타이머를 가져옵니다.',
-    '**/내보내기** — 모든 보스 타이머를 텍스트로 내보냅니다.',
-    '',
-    '**🇯🇵 日本語**',
-    '**討伐 <ボス名>** — ボス討伐記録。現在のJST時間を討伐時間として保存。',
-    '**設定 <ボス名> [月日] <時分>** — 手動討伐時間。日付省略可。例: `設定 ベナトゥス 0721 1430` 又は `設定 ベナトゥス 1430`',
-    '**<ボス名> <時分>** — 省略形: 今日の討伐時間を設定。例: `ベナトゥス 1430`',
-    '**<ボス名> <月日> <時分>** — 省略形: 日付付き討伐時間。例: `ベナトゥス 0730 1430`',
-    '**逃し <ボス名>** — 取り逃し記録。アクティブタイマー必須。5分ペナルティ。',
-    '**解除 <ボス名>** — ボスタイマーをクリア。',
-    '**一覧** — 全ボス一覧。残り時間と出現時間を表示。',
-    '**まもなく** — 今日と明日の出現ボスを残り時間順に表示。',
-    '**全解除 確認** — 全固定周期ボスタイマーをリセット。',
-    '**へるぷ** — ヘルプを表示。',
-    '**/せってい** — 通知チャンネルを設定します。',
-    '**/せってい ping_here:True** — 出現通知で@hereを有効化。',
-    '**/へるぷ** — 全コマンドヘルプを表示します。',
-    '**/いんぽーと** — 貼り付けデータからボスタイマーをインポートします。',
-    '**/エクスポート** — 全ボスタイマーをテキストでエクスポートします。',
-  ].join('\n');
+const HELP_EN = [
+  '# :flag_us: English',
+  '**⏱ Boss Timer**',
+  '`kill <bossname>` → Record boss kill using current JST time.',
+  '> Example: `kill Venatus`',
+  '`set <bossname> [MMDD] <HHMM>` → Set kill time manually. Date is optional.',
+  '> Examples: `set Venatus 1430` \u2022 `set Venatus 0721 1430`',
+  '`<bossname> <HHMM>` → Shortcut to set today\'s kill time.',
+  '> Example: `Venatus 1430`',
+  '`<bossname> <MMDD> <HHMM>` → Shortcut to set kill time with a date.',
+  '> Example: `Venatus 0730 1430`',
+  '`miss <bossname>` → Mark boss as missed. Requires active timer. Adds 5-minute penalty.',
+  '> Example: `miss Venatus`',
+  '`clear <bossname>` → Remove the boss timer.',
+  '> Example: `clear Venatus`',
+  '',
+  '**:clipboard: Lists**',
+  '`bl` → Show all bosses with remaining time and spawn date/time.',
+  '`ut` → Show today\'s & tomorrow\'s bosses sorted by remaining time.',
+  '',
+  '**:gear: Management**',
+  '`reset_tracker confirm` → Reset all interval boss timers.',
+  '',
+  '**:tools: Slash Commands**',
+  '`astra help` or `astra` → Show this help message.',
+  '`/setup` → Configure notification channels.',
+  '`/setup ping_here:True` → Enable `@here` spawn notifications.',
+  '`/astra` → Show this help message.',
+  '`/import` → Import boss timers from paste data.',
+  '`/export` → Export all boss timers as text.',
+].join('\n');
+
+const HELP_KO = [
+  '# :flag_kr: 한국어',
+  '**⏱ 보스 타이머**',
+  '`처치 <보스명>` → 현재 JST 시간으로 보스 처치를 기록합니다.',
+  '> 예시: `처치 베나투스`',
+  '`설정 <보스명> [월일] <시분>` → 처치 시간을 수동으로 설정합니다. 날짜는 선택 사항입니다.',
+  '> 예시: `설정 베나투스 1430` \u2022 `설정 베나투스 0721 1430`',
+  '`<보스명> <시분>` → 오늘 날짜의 처치 시간을 설정하는 단축 명령입니다.',
+  '> 예시: `베나투스 1430`',
+  '`<보스명> <월일> <시분>` → 날짜를 포함하여 처치 시간을 설정하는 단축 명령입니다.',
+  '> 예시: `베나투스 0730 1430`',
+  '`놓침 <보스명>` → 보스 놓침을 기록합니다. 활성 타이머 필요. 5분 패널티 추가.',
+  '> 예시: `놓침 베나투스`',
+  '`초기화 <보스명>` → 보스 타이머를 삭제합니다.',
+  '> 예시: `초기화 베나투스`',
+  '',
+  '**:clipboard: 목록**',
+  '`목록` → 모든 보스의 남은 시간과 출현 시간을 표시합니다.',
+  '`곧` → 오늘과 내일 출현하는 보스를 남은 시간순으로 표시합니다.',
+  '',
+  '**:gear: 관리**',
+  '`초기화_전체 확인` → 모든 고정 주기 보스 타이머를 초기화합니다.',
+  '',
+  '**:tools: 슬래시 명령어**',
+  '`도움` 또는 `도움말` → 도움말을 표시합니다.',
+  '`/설정` → 알림 채널을 설정합니다.',
+  '`/설정 ping_here:True` → 출현 알림에 `@here`를 활성화합니다.',
+  '`/도움말` → 모든 명령어 도움말을 표시합니다.',
+  '`/가져오기` → 붙여넣기 데이터에서 보스 타이머를 가져옵니다.',
+  '`/내보내기` → 모든 보스 타이머를 텍스트로 내보냅니다.',
+].join('\n');
+
+const HELP_JA = [
+  '# :flag_jp: 日本語',
+  '**⏱ ボスタイマー**',
+  '`討伐 <ボス名>` → 現在のJST時間でボス討伐を記録します。',
+  '> 例: `討伐 ベナトゥス`',
+  '`設定 <ボス名> [月日] <時分>` → 討伐時間を手動で設定します。日付は省略可能です。',
+  '> 例: `設定 ベナトゥス 1430` \u2022 `設定 ベナトゥス 0721 1430`',
+  '`<ボス名> <時分>` → 今日の日付で討伐時間を設定する省略コマンドです。',
+  '> 例: `ベナトゥス 1430`',
+  '`<ボス名> <月日> <時分>` → 日付付きで討伐時間を設定する省略コマンドです。',
+  '> 例: `ベナトゥス 0730 1430`',
+  '`逃し <ボス名>` → 取り逃しを記録します。アクティブタイマーが必要です。5分ペナルティ追加。',
+  '> 例: `逃し ベナトゥス`',
+  '`解除 <ボス名>` → ボスタイマーを削除します。',
+  '> 例: `解除 ベナトゥス`',
+  '',
+  '**:clipboard: 一覧**',
+  '`一覧` → 全ボスの残り時間と出現時間を表示します。',
+  '`まもなく` → 今日と明日の出現ボスを残り時間順に表示します。',
+  '',
+  '**:gear: 管理**',
+  '`全解除 確認` → 全固定周期ボスタイマーをリセットします。',
+  '',
+  '**:tools: スラッシュコマンド**',
+  '`へるぷ` → ヘルプを表示します。',
+  '`/せってい` → 通知チャンネルを設定します。',
+  '`/せってい ping_here:True` → 出現通知で `@here` を有効化します。',
+  '`/へるぷ` → 全コマンドヘルプを表示します。',
+  '`/いんぽーと` → 貼り付けデータからボスタイマーをインポートします。',
+  '`/エクスポート` → 全ボスタイマーをテキストでエクスポートします。',
+].join('\n');
+
+export function buildDetailedHelp(lang = 'en') {
+  if (lang === 'ko') return HELP_KO;
+  if (lang === 'ja') return HELP_JA;
+  return HELP_EN;
 }
 
 export async function handleCommand(msg) {
@@ -346,6 +393,7 @@ export async function handleInteraction(interaction) {
   if (interaction.isCommand()) {
     const cmdName = interaction.commandName;
     const isSetup = cmdName === 'setup' || cmdName === '설정' || cmdName === 'せってい';
+    const helpLang = cmdName === '도움말' ? 'ko' : cmdName === 'へるぷ' ? 'ja' : 'en';
     const isHelp = cmdName === 'astra' || cmdName === 'tracker_commands' || cmdName === '도움말' || cmdName === 'へるぷ';
     const isImport = cmdName === 'import' || cmdName === '가져오기' || cmdName === 'いんぽーと';
     const isExport = cmdName === 'export' || cmdName === '내보내기' || cmdName === 'エクスポート';
@@ -405,7 +453,7 @@ export async function handleInteraction(interaction) {
         return interaction.editReply({ content: tFn('setupSuccess', voiceLang) + pingStatus });
       }
       if (isHelp) {
-        return interaction.reply({ content: buildDetailedHelp().slice(0, 2000), flags: MessageFlags.Ephemeral });
+        return interaction.reply({ content: buildDetailedHelp(helpLang).slice(0, 2000), flags: MessageFlags.Ephemeral });
       }
     return;
   }
