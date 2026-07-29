@@ -32,6 +32,8 @@ let notifMessageCache = new Map();
 let sentSoonNotifs = new Set();
 let sentSpawnedNotifs = new Set();
 let ttsSpokenMinutes = new Map();
+let sentWorldBossSpawned = new Set();
+let ttsWorldBossMinutes = new Map();
 
 const TTS_SPAWN_IN = {
   en: (n, m) => `${n} will respawn in ${m} minute${m !== 1 ? 's' : ''}.`,
@@ -49,6 +51,23 @@ const TTS_DEFEATED = {
   en: (n, t) => `${n} has been defeated. Next respawn ${t}.`,
   ko: (n, t) => `${n}이(가) 처치되었습니다. 다음 출현 ${t}.`,
   ja: (n, t) => `${n}が討伐されました。次の出現は${t}です。`
+};
+
+const WORLD_BOSS_TIMES = [
+  { hour: 12, minute: 0 },
+  { hour: 21, minute: 0 },
+];
+
+const TTS_WORLD_BOSS_IN = {
+  en: (m) => `World Boss will spawn in ${m} minute${m !== 1 ? 's' : ''}.`,
+  ko: (m) => `월드 보스가 ${m}분 후에 출현합니다.`,
+  ja: (m) => `ワールドボスが${m}分後に出現します。`,
+};
+
+const TTS_WORLD_BOSS_SPAWNED = {
+  en: 'World Boss has spawned.',
+  ko: '월드 보스가 출현했습니다.',
+  ja: 'ワールドボスが出現しました。',
 };
 
 let audioPlayer = null;
@@ -621,6 +640,37 @@ function startNotifLoop() {
         }
         } catch (e) { /* skip failed boss, continue loop */ }
       }
+
+      // World Boss TTS
+      try {
+        const jstNow = new Date(now + TZ_OFFSET);
+        let nextSpawn = null;
+        for (const { hour, minute } of WORLD_BOSS_TIMES) {
+          const s = Date.UTC(jstNow.getUTCFullYear(), jstNow.getUTCMonth(), jstNow.getUTCDate(), hour - 9, minute);
+          let ts = s;
+          if (ts < now - 300000) ts += 86400000;
+          if (!nextSpawn || ts < nextSpawn) nextSpawn = ts;
+        }
+        if (nextSpawn) {
+          const remainingMs = nextSpawn - now;
+          const d = new Date(nextSpawn + TZ_OFFSET);
+          const spawnKey = `${String(d.getUTCMonth() + 1).padStart(2, '0')}${String(d.getUTCDate()).padStart(2, '0')}_${String(d.getUTCHours()).padStart(2, '0')}${String(d.getUTCMinutes()).padStart(2, '0')}`;
+          if (remainingMs > 0 && remainingMs <= 5 * 60 * 1000) {
+            const minutesLeft = Math.ceil(remainingMs / 60000);
+            const spokeKey = `${spawnKey}_${minutesLeft}`;
+            if (!ttsWorldBossMinutes.has(spokeKey)) {
+              ttsWorldBossMinutes.set(spokeKey, true);
+              const fn = TTS_WORLD_BOSS_IN[config.voiceLang] || TTS_WORLD_BOSS_IN.en;
+              speak(fn(minutesLeft));
+            }
+          }
+          if (remainingMs <= 0 && remainingMs > -300000 && !sentWorldBossSpawned.has(spawnKey)) {
+            sentWorldBossSpawned.add(spawnKey);
+            speak(TTS_WORLD_BOSS_SPAWNED[config.voiceLang] || TTS_WORLD_BOSS_SPAWNED.en);
+          }
+        }
+      } catch (e) {}
+
     } catch (e) {
       console.error('Notif loop error:', e);
     }
@@ -634,6 +684,12 @@ function startNotifLoop() {
       }
     }
     ttsSpokenMinutes.clear();
+    const jstNow = new Date(Date.now() + TZ_OFFSET);
+    const todayStr = `${String(jstNow.getUTCMonth() + 1).padStart(2, '0')}${String(jstNow.getUTCDate()).padStart(2, '0')}`;
+    for (const key of sentWorldBossSpawned) {
+      if (!key.startsWith(todayStr)) sentWorldBossSpawned.delete(key);
+    }
+    ttsWorldBossMinutes.clear();
   }, 3600000);
 }
 
