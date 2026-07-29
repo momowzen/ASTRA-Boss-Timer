@@ -45,6 +45,37 @@ async function announceKill(bossId, killedAt, endTime, statusKey, user, shouldSp
   if (shouldSpeak) speakDefeatedFn(bossId, endTime);
 }
 
+function parseBossTimeArgs(args) {
+  if (!args.length) return null;
+  const last = args[args.length - 1];
+  if (!/^\d{4}$/.test(last)) return null;
+  if (args.length >= 2 && /^\d{4}$/.test(args[args.length - 2])) {
+    return { name: args.slice(0, args.length - 2).join(' '), date: args[args.length - 2], time: last };
+  }
+  return { name: args.slice(0, args.length - 1).join(' '), date: null, time: last };
+}
+
+function applySet(boss, dateStr, timeStr, user, lang) {
+  const hour = parseInt(timeStr.slice(0, 2));
+  const minute = parseInt(timeStr.slice(2, 4));
+  if (isNaN(hour) || isNaN(minute)) return tFn('invalidTime', lang);
+  const now = new Date();
+  let killedAt;
+  if (dateStr) {
+    const month = parseInt(dateStr.slice(0, 2));
+    const day = parseInt(dateStr.slice(2, 4));
+    killedAt = new Date(now.getFullYear(), month - 1, day, hour, minute).getTime();
+  } else {
+    const jstNow = new Date(now.getTime() + TZ_OFFSET);
+    killedAt = new Date(Date.UTC(jstNow.getUTCFullYear(), jstNow.getUTCMonth(), jstNow.getUTCDate(), hour, minute)).getTime() - TZ_OFFSET;
+  }
+  if (isNaN(killedAt)) return tFn('invalidDate', lang);
+  if (killedAt > Date.now()) return tFn('futureTime', lang);
+  const endTime = boss.respawn ? killedAt + boss.respawn * 1000 : killedAt;
+  timers[boss.id] = { endTime, startedAt: killedAt };
+  return { ok: true, killedAt, endTime };
+}
+
 export function buildDetailedHelp() {
   return [
     '**🇺🇸 English**',
@@ -129,35 +160,19 @@ export async function handleCommand(msg) {
   }
 
   if (cmd === 'set' && parts.length >= 3) {
-    const query = parts[1];
-    let dateStr, timeStr;
-    if (parts.length === 3) { dateStr = null; timeStr = parts[2]; }
-    else { dateStr = parts[2]; timeStr = parts[3]; }
-    const boss = findBossFn(query, lang);
-    if (!boss) return msg.reply(`${tFn('bossNotFound', lang)} ${query}`);
+    const parsed = parseBossTimeArgs(parts.slice(1));
+    if (!parsed) return;
+    const boss = findBossFn(parsed.name, lang);
+    if (!boss) return msg.reply(`${tFn('bossNotFound', lang)} ${parsed.name}`);
     if (boss.weeklyRespawns) return msg.reply(tFn('scheduleOnly', lang));
-    const hour = parseInt(timeStr.slice(0, 2));
-    const minute = parseInt(timeStr.slice(2, 4));
-    if (isNaN(hour) || isNaN(minute)) return msg.reply(tFn('invalidTime', lang));
-    const now = new Date();
-    let killedAt;
-    if (dateStr) {
-      const month = parseInt(dateStr.slice(0, 2));
-      const day = parseInt(dateStr.slice(2, 4));
-      killedAt = new Date(now.getFullYear(), month - 1, day, hour, minute).getTime();
-    } else {
-      const jstNow = new Date(now.getTime() + TZ_OFFSET);
-      killedAt = new Date(Date.UTC(jstNow.getUTCFullYear(), jstNow.getUTCMonth(), jstNow.getUTCDate(), hour, minute)).getTime() - TZ_OFFSET;
-    }
-    if (isNaN(killedAt)) return msg.reply(tFn('invalidDate', lang));
-    if (killedAt > Date.now()) return msg.reply(tFn('futureTime', lang));
-    const endTime = boss.respawn ? killedAt + boss.respawn * 1000 : killedAt;
-    timers[boss.id] = { endTime, startedAt: killedAt };
+    const result = applySet(boss, parsed.date, parsed.time, msg.author, lang);
+    if (typeof result === 'string') return msg.reply(result);
+    timers[boss.id] = { endTime: result.endTime, startedAt: result.killedAt };
     resetBossCycleFn(boss.id);
     removeBossReactionsFn(boss.id).catch(() => {});
     await saveTimersFn();
-    await addHistoryFn(boss.id, 'killed', killedAt);
-    await announceKill(boss.id, killedAt, endTime, 'manualSet', msg.author.toString());
+    await addHistoryFn(boss.id, 'killed', result.killedAt);
+    await announceKill(boss.id, result.killedAt, result.endTime, 'manualSet', msg.author.toString());
     return;
   }
 
@@ -277,34 +292,19 @@ export async function handleCommand(msg) {
   }
   }
 
-  if (!resolved && parts.length >= 2 && parts.length <= 3 && !parts[0].startsWith('/')) {
-    const boss = findBossFn(parts[0], lang);
+  if (!resolved && parts.length >= 2 && !parts[0].startsWith('/')) {
+    const parsed = parseBossTimeArgs(parts);
+    if (!parsed) return;
+    const boss = findBossFn(parsed.name, lang);
     if (boss && !boss.weeklyRespawns) {
-      let dateStr = null, timeStr;
-      if (parts.length === 2) { timeStr = parts[1]; }
-      else { dateStr = parts[1]; timeStr = parts[2]; }
-      const hour = parseInt(timeStr.slice(0, 2));
-      const minute = parseInt(timeStr.slice(2, 4));
-      if (isNaN(hour) || isNaN(minute)) return msg.reply(tFn('invalidTime', lang));
-      const now = new Date();
-      let killedAt;
-      if (dateStr) {
-        const month = parseInt(dateStr.slice(0, 2));
-        const day = parseInt(dateStr.slice(2, 4));
-        killedAt = new Date(now.getFullYear(), month - 1, day, hour, minute).getTime();
-      } else {
-        const jstNow = new Date(now.getTime() + TZ_OFFSET);
-        killedAt = new Date(Date.UTC(jstNow.getUTCFullYear(), jstNow.getUTCMonth(), jstNow.getUTCDate(), hour, minute)).getTime() - TZ_OFFSET;
-      }
-      if (isNaN(killedAt)) return msg.reply(tFn('invalidDate', lang));
-      if (killedAt > Date.now()) return msg.reply(tFn('futureTime', lang));
-      const endTime = killedAt + boss.respawn * 1000;
-      timers[boss.id] = { endTime, startedAt: killedAt };
+      const result = applySet(boss, parsed.date, parsed.time, msg.author, lang);
+      if (typeof result === 'string') return msg.reply(result);
+      timers[boss.id] = { endTime: result.endTime, startedAt: result.killedAt };
       resetBossCycleFn(boss.id);
       removeBossReactionsFn(boss.id).catch(() => {});
       await saveTimersFn();
-      await addHistoryFn(boss.id, 'killed', killedAt);
-      await announceKill(boss.id, killedAt, endTime, 'manualSet', msg.author.toString());
+      await addHistoryFn(boss.id, 'killed', result.killedAt);
+      await announceKill(boss.id, result.killedAt, result.endTime, 'manualSet', msg.author.toString());
       return;
     }
   }
