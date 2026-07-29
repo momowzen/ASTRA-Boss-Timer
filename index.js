@@ -35,21 +35,21 @@ let sentSpawnedNotifs = new Set();
 let ttsSpokenMinutes = new Map();
 
 const TTS_SPAWN_IN = {
-  en: (n, m) => `${n} will respawn in ${m} minute${m !== 1 ? 's' : ''}.`,
-  ko: (n, m) => `${n}이(가) ${m}분 후에 출현합니다.`,
-  ja: (n, m) => `${n}が${m}分後に出現します。`
+  en: (n, m) => `${n} spawns in ${m} minute${m !== 1 ? 's' : ''}.`,
+  ko: (n, m) => `${n}가 ${m}분 후 출현합니다.`,
+  ja: (n, m) => `${n}は${m}分後に出現します。`
 };
 
 const TTS_SPAWNED = {
-  en: (n) => `${n} has respawned.`,
-  ko: (n) => `${n}이(가) 출현했습니다.`,
+  en: (n) => `${n} has spawned.`,
+  ko: (n) => `${n}가 출현했습니다.`,
   ja: (n) => `${n}が出現しました。`
 };
 
 const TTS_DEFEATED = {
-  en: (n, t) => `${n} has been defeated. Next respawn ${t}.`,
-  ko: (n, t) => `${n}이(가) 처치되었습니다. 다음 출현 ${t}.`,
-  ja: (n, t) => `${n}が討伐されました。次の出現は${t}です。`
+  en: (n, d, t) => `${n} defeated. Next spawn ${d} at ${t}.`,
+  ko: (n, d, t) => `${n} 처치 완료. 다음 출현은 ${d} ${t}입니다.`,
+  ja: (n, d, t) => `${n}討伐完了。次回出現は${d} ${t}です。`
 };
 
 const WORLD_BOSS_TIMES = [
@@ -58,9 +58,9 @@ const WORLD_BOSS_TIMES = [
 ];
 
 const TTS_WORLD_BOSS_IN = {
-  en: (m) => `World Boss will spawn in ${m} minute${m !== 1 ? 's' : ''}.`,
-  ko: (m) => `월드 보스가 ${m}분 후에 출현합니다.`,
-  ja: (m) => `ワールドボスが${m}分後に出現します。`,
+  en: (m) => `World Boss spawns in ${m} minute${m !== 1 ? 's' : ''}.`,
+  ko: (m) => `월드 보스가 ${m}분 후 출현합니다.`,
+  ja: (m) => `ワールドボスは${m}分後に出現します。`,
 };
 
 const TTS_WORLD_BOSS_SPAWNED = {

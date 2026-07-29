@@ -110,9 +110,10 @@ export function speakDefeated(bossId, nextRespawnTime, BOSSES_DATA) {
   const boss = BOSSES_DATA.find(b => b.id === bossId);
   if (!boss) return;
   const fn = TTS_DEFEATED[config.voiceLang] || TTS_DEFEATED.en;
-  const locales = { en: 'en-US', ko: 'ko-KR', ja: 'ja-JP' };
-  const timeStr = new Date(nextRespawnTime).toLocaleString(locales[config.voiceLang] || 'en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: config.voiceLang !== 'ja', timeZone: TZ });
-  speak(fn(bossNameFn(bossId, config.voiceLang), timeStr));
+  const locale = { en: 'en-US', ko: 'ko-KR', ja: 'ja-JP' }[config.voiceLang] || 'en-US';
+  const dateStr = new Date(nextRespawnTime).toLocaleString(locale, { month: 'short', day: 'numeric', timeZone: TZ });
+  const timeStr = new Date(nextRespawnTime).toLocaleString(locale, { hour: '2-digit', minute: '2-digit', hour12: config.voiceLang !== 'ja', timeZone: TZ });
+  speak(fn(bossNameFn(bossId, config.voiceLang), dateStr, timeStr));
 }
 
 export function speakFromNotifLoop(bossName, minutesLeft) {
