@@ -393,7 +393,7 @@ export async function handleInteraction(interaction) {
   if (interaction.isCommand()) {
     const cmdName = interaction.commandName;
     const isSetup = cmdName === 'setup' || cmdName === '설정' || cmdName === 'せってい';
-    const helpLang = cmdName === '도움말' ? 'ko' : cmdName === 'へるぷ' ? 'ja' : 'en';
+    const helpLang = interaction.locale?.startsWith('ko') ? 'ko' : interaction.locale?.startsWith('ja') ? 'ja' : 'en';
     const isHelp = cmdName === 'astra' || cmdName === 'tracker_commands' || cmdName === '도움말' || cmdName === 'へるぷ';
     const isImport = cmdName === 'import' || cmdName === '가져오기' || cmdName === 'いんぽーと';
     const isExport = cmdName === 'export' || cmdName === '내보내기' || cmdName === 'エクスポート';
