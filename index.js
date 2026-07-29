@@ -25,7 +25,7 @@ try {
 }
 const db = admin.firestore();
 const TZ = 'Asia/Tokyo';
-const HISTORY_TTL_DAYS = 30;
+const HISTORY_TTL_DAYS = 2;
 
 let config = { channels: { en: null, ko: null, ja: null }, voice: null, voiceLang: 'en' };
 let timers = {};
