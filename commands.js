@@ -208,8 +208,8 @@ export async function handleCommand(msg) {
   }
 
   if (cmd === 'bl') {
-    const schedule = BOSSES_DATA.filter(b => b.weeklyRespawns);
-    const interval = BOSSES_DATA.filter(b => b.respawn);
+    const schedule = BOSSES_DATA.filter(b => b.weeklyRespawns && b.id !== 'Test');
+    const interval = BOSSES_DATA.filter(b => b.respawn && b.id !== 'Test');
 
     function buildList(list, title) {
       const G = '   ', S = 12, R = 10, B = 20, total = S + G.length + R + G.length + B;
@@ -343,7 +343,8 @@ export async function handleInteraction(interaction) {
     if (isExport) {
       const now = Date.now();
       const lines = [];
-      for (const boss of BOSSES_DATA) {
+    for (const boss of BOSSES_DATA) {
+      if (boss.id === 'Test') continue;
         const info = timers[boss.id];
         let spawnTime = info?.endTime;
         if (!spawnTime && boss.weeklyRespawns) {
