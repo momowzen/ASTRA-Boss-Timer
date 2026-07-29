@@ -77,7 +77,7 @@ function applySet(boss, dateStr, timeStr, user, lang) {
 }
 
 const HELP_EN = [
-  '# :flag_us: English',
+  '**📖 ASTRA Help | 🇺🇸 English**',
   '**⏱ Boss Timer**',
   '`kill <bossname>` → Record boss kill using current JST time.',
   '> Example: `kill Venatus`',
@@ -109,7 +109,7 @@ const HELP_EN = [
 ].join('\n');
 
 const HELP_KO = [
-  '# :flag_kr: 한국어',
+  '**📖 ASTRA Help | 🇰🇷 한국어**',
   '**⏱ 보스 타이머**',
   '`처치 <보스명>` → 현재 JST 시간으로 보스 처치를 기록합니다.',
   '> 예시: `처치 베나투스`',
@@ -141,7 +141,7 @@ const HELP_KO = [
 ].join('\n');
 
 const HELP_JA = [
-  '# :flag_jp: 日本語',
+  '**📖 ASTRA Help | 🇯🇵 日本語**',
   '**⏱ ボスタイマー**',
   '`討伐 <ボス名>` → 現在のJST時間でボス討伐を記録します。',
   '> 例: `討伐 ベナトゥス`',
