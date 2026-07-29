@@ -27,7 +27,7 @@ const db = admin.firestore();
 const TZ = 'Asia/Tokyo';
 const HISTORY_TTL_DAYS = 2;
 
-let config = { channels: { en: null, ko: null, ja: null }, voice: null, voiceLang: 'en' };
+let config = { channels: { en: null, ko: null, ja: null }, voice: null, voiceLang: 'en', pingHere: false };
 let timers = {};
 let notifMessageCache = new Map();
 let sentSoonNotifs = new Set();
@@ -346,7 +346,8 @@ client.once('clientReady', async () => {
           { name: 'Korean', value: 'ko' },
           { name: 'Japanese', value: 'ja' }
         ]
-      }
+      },
+      { name: 'ping_here', description: '@here ping on spawn warnings', type: 5, required: false, descriptionLocalizations: { ko: '출현 알림 @here 멘션', ja: '出現通知で@hereメンション' } }
     ]
   }, {
     name: 'astra',

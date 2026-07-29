@@ -35,6 +35,16 @@ export function initCommands(deps) {
   notifMessageCache = deps.notifMessageCache;
 }
 
+async function announceKill(bossId, killedAt, endTime, statusKey, user, shouldSpeak = true) {
+  await sendAllNotifsFn(
+    `**${bossNameFn(bossId, 'en')}** ${tFn(statusKey, 'en')}\n${tFn('killTime', 'en')}: ${formatJSTFn(killedAt, 'en')}\n${tFn('nextRespawn', 'en')}: ${formatJSTFn(endTime, 'en')}\n${tFn('byUser', 'en')} ${user}`,
+    `**${bossNameFn(bossId, 'ko')}** ${tFn(statusKey, 'ko')}\n${tFn('killTime', 'ko')}: ${formatJSTFn(killedAt, 'ko')}\n${tFn('nextRespawn', 'ko')}: ${formatJSTFn(endTime, 'ko')}\n${tFn('byUser', 'ko')} ${user}`,
+    `**${bossNameFn(bossId, 'ja')}** ${tFn(statusKey, 'ja')}\n${tFn('killTime', 'ja')}: ${formatJSTFn(killedAt, 'ja')}\n${tFn('nextRespawn', 'ja')}: ${formatJSTFn(endTime, 'ja')}\n${tFn('byUser', 'ja')} ${user}`,
+    bossId
+  );
+  if (shouldSpeak) speakDefeatedFn(bossId, endTime);
+}
+
 export function buildDetailedHelp() {
   return [
     '**🇺🇸 English**',
@@ -105,17 +115,7 @@ export async function handleCommand(msg) {
     removeBossReactionsFn(boss.id).catch(() => {});
     await saveTimersFn();
     await addHistoryFn(boss.id, 'killed', now);
-    const user = msg.author.toString();
-    const nextStrEn = formatJSTFn(endTime, 'en');
-    const nextStrKo = formatJSTFn(endTime, 'ko');
-    const nextStrJa = formatJSTFn(endTime, 'ja');
-    await sendAllNotifsFn(
-      `**${bossNameFn(boss.id, 'en')}** ${tFn('defeated', 'en')}\n${tFn('killTime', 'en')}: ${formatJSTFn(now, 'en')}\n${tFn('nextRespawn', 'en')}: ${nextStrEn}\n${tFn('byUser', 'en')} ${user}`,
-      `**${bossNameFn(boss.id, 'ko')}** ${tFn('defeated', 'ko')}\n${tFn('killTime', 'ko')}: ${formatJSTFn(now, 'ko')}\n${tFn('nextRespawn', 'ko')}: ${nextStrKo}\n${tFn('byUser', 'ko')} ${user}`,
-      `**${bossNameFn(boss.id, 'ja')}** ${tFn('defeated', 'ja')}\n${tFn('killTime', 'ja')}: ${formatJSTFn(now, 'ja')}\n${tFn('nextRespawn', 'ja')}: ${nextStrJa}\n${tFn('byUser', 'ja')} ${user}`,
-      boss.id
-    );
-    speakDefeatedFn(boss.id, endTime);
+    await announceKill(boss.id, now, endTime, 'defeated', msg.author.toString());
     return;
   }
 
@@ -148,17 +148,7 @@ export async function handleCommand(msg) {
     removeBossReactionsFn(boss.id).catch(() => {});
     await saveTimersFn();
     await addHistoryFn(boss.id, 'killed', killedAt);
-    const user = msg.author.toString();
-    const nextStrEn = formatJSTFn(endTime, 'en');
-    const nextStrKo = formatJSTFn(endTime, 'ko');
-    const nextStrJa = formatJSTFn(endTime, 'ja');
-    await sendAllNotifsFn(
-      `**${bossNameFn(boss.id, 'en')}** ${tFn('manualSet', 'en')}\n${tFn('killTime', 'en')}: ${formatJSTFn(killedAt, 'en')}\n${tFn('nextRespawn', 'en')}: ${nextStrEn}\n${tFn('byUser', 'en')} ${user}`,
-      `**${bossNameFn(boss.id, 'ko')}** ${tFn('manualSet', 'ko')}\n${tFn('killTime', 'ko')}: ${formatJSTFn(killedAt, 'ko')}\n${tFn('nextRespawn', 'ko')}: ${nextStrKo}\n${tFn('byUser', 'ko')} ${user}`,
-      `**${bossNameFn(boss.id, 'ja')}** ${tFn('manualSet', 'ja')}\n${tFn('killTime', 'ja')}: ${formatJSTFn(killedAt, 'ja')}\n${tFn('nextRespawn', 'ja')}: ${nextStrJa}\n${tFn('byUser', 'ja')} ${user}`,
-      boss.id
-    );
-    speakDefeatedFn(boss.id, endTime);
+    await announceKill(boss.id, killedAt, endTime, 'manualSet', msg.author.toString());
     return;
   }
 
@@ -169,24 +159,14 @@ export async function handleCommand(msg) {
     if (boss.weeklyRespawns) return msg.reply(tFn('scheduleOnly', lang));
     const timer = timers[boss.id];
     if (!timer || !timer.endTime) return msg.reply(`${tFn('noTimer', lang)} ${bossNameFn(boss.id, lang)}`);
-    const killedAt = timer.endTime;
     const now = Date.now();
-    const endTime = killedAt + 5 * 60 * 1000;
-    timers[boss.id] = { endTime, startedAt: killedAt };
+    const endTime = timer.endTime + 5 * 60 * 1000;
+    timers[boss.id] = { endTime, startedAt: timer.endTime };
     resetBossCycleFn(boss.id);
     removeBossReactionsFn(boss.id).catch(() => {});
     await saveTimersFn();
     await addHistoryFn(boss.id, 'missed', now);
-    const user = msg.author.toString();
-    const nextStrEn = formatJSTFn(endTime, 'en');
-    const nextStrKo = formatJSTFn(endTime, 'ko');
-    const nextStrJa = formatJSTFn(endTime, 'ja');
-    await sendAllNotifsFn(
-      `**${bossNameFn(boss.id, 'en')}** ${tFn('missed', 'en')}\n${tFn('killTime', 'en')}: ${formatJSTFn(killedAt, 'en')}\n${tFn('nextRespawn', 'en')}: ${nextStrEn}\n${tFn('byUser', 'en')} ${user}`,
-      `**${bossNameFn(boss.id, 'ko')}** ${tFn('missed', 'ko')}\n${tFn('killTime', 'ko')}: ${formatJSTFn(killedAt, 'ko')}\n${tFn('nextRespawn', 'ko')}: ${nextStrKo}\n${tFn('byUser', 'ko')} ${user}`,
-      `**${bossNameFn(boss.id, 'ja')}** ${tFn('missed', 'ja')}\n${tFn('killTime', 'ja')}: ${formatJSTFn(killedAt, 'ja')}\n${tFn('nextRespawn', 'ja')}: ${nextStrJa}\n${tFn('byUser', 'ja')} ${user}`,
-      boss.id
-    );
+    await announceKill(boss.id, timer.endTime, endTime, 'missed', msg.author.toString(), false);
     return;
   }
 
@@ -235,6 +215,7 @@ export async function handleCommand(msg) {
     const cutoff24h = now + 86400000;
     const bosses = [];
     for (const boss of BOSSES_DATA) {
+      if (boss.id === 'Test') continue;
       const next = getNextSpawnFn(boss);
       if (next) {
         const time = next.getTime();
@@ -343,8 +324,7 @@ export async function handleInteraction(interaction) {
     if (isExport) {
       const now = Date.now();
       const lines = [];
-    for (const boss of BOSSES_DATA) {
-      if (boss.id === 'Test') continue;
+      for (const boss of BOSSES_DATA) {
         const info = timers[boss.id];
         let spawnTime = info?.endTime;
         if (!spawnTime && boss.weeklyRespawns) {
@@ -370,14 +350,17 @@ export async function handleInteraction(interaction) {
         const jaCh = interaction.options.getChannel('japanese_channel');
         const voiceCh = interaction.options.getChannel('voice_channel');
         const voiceLang = interaction.options.getString('voice_language') || config.voiceLang || 'en';
+        const pingHere = interaction.options.getBoolean('ping_here') ?? config.pingHere;
         if (enCh) config.channels.en = enCh.id;
         if (koCh) config.channels.ko = koCh.id;
         if (jaCh) config.channels.ja = jaCh.id;
         if (voiceCh) { config.voice = voiceCh.id; }
         config.voiceLang = voiceLang;
+        config.pingHere = pingHere;
         await db.collection('config').doc('discordBot').set(config, { merge: false });
         await interaction.deferReply({ flags: MessageFlags.Ephemeral });
-        return interaction.editReply({ content: tFn('setupSuccess', voiceLang) });
+        const pingStatus = pingHere ? ` | @here: ${pingHere}` : '';
+        return interaction.editReply({ content: tFn('setupSuccess', voiceLang) + pingStatus });
       }
       if (isHelp) {
         return interaction.reply({ content: buildDetailedHelp().slice(0, 2000), flags: MessageFlags.Ephemeral });
@@ -405,17 +388,7 @@ export async function handleInteraction(interaction) {
     await removeBossReactionsFn(boss.id).catch(() => {});
     await saveTimersFn();
     await addHistoryFn(boss.id, 'killed', now);
-    const user = interaction.user.toString();
-    const nextStrEn = formatJSTFn(endTime, 'en');
-    const nextStrKo = formatJSTFn(endTime, 'ko');
-    const nextStrJa = formatJSTFn(endTime, 'ja');
-    await sendAllNotifsFn(
-      `**${bossNameFn(bossId, 'en')}** ${tFn('defeated', 'en')}\n${tFn('killTime', 'en')}: ${formatJSTFn(now, 'en')}\n${tFn('nextRespawn', 'en')}: ${nextStrEn}\n${tFn('byUser', 'en')} ${user}`,
-      `**${bossNameFn(bossId, 'ko')}** ${tFn('defeated', 'ko')}\n${tFn('killTime', 'ko')}: ${formatJSTFn(now, 'ko')}\n${tFn('nextRespawn', 'ko')}: ${nextStrKo}\n${tFn('byUser', 'ko')} ${user}`,
-      `**${bossNameFn(bossId, 'ja')}** ${tFn('defeated', 'ja')}\n${tFn('killTime', 'ja')}: ${formatJSTFn(now, 'ja')}\n${tFn('nextRespawn', 'ja')}: ${nextStrJa}\n${tFn('byUser', 'ja')} ${user}`,
-      bossId
-    );
-    speakDefeatedFn(bossId, endTime);
+    await announceKill(bossId, now, endTime, 'defeated', interaction.user.toString());
     return;
   }
 
@@ -429,16 +402,7 @@ export async function handleInteraction(interaction) {
     await removeBossReactionsFn(boss.id).catch(() => {});
     await saveTimersFn();
     await addHistoryFn(boss.id, 'missed', now);
-    const user = interaction.user.toString();
-    const nextStrEn = formatJSTFn(endTime, 'en');
-    const nextStrKo = formatJSTFn(endTime, 'ko');
-    const nextStrJa = formatJSTFn(endTime, 'ja');
-    await sendAllNotifsFn(
-      `**${bossNameFn(bossId, 'en')}** ${tFn('missed', 'en')}\n${tFn('killTime', 'en')}: ${formatJSTFn(killedAt, 'en')}\n${tFn('nextRespawn', 'en')}: ${nextStrEn}\n${tFn('byUser', 'en')} ${user}`,
-      `**${bossNameFn(bossId, 'ko')}** ${tFn('missed', 'ko')}\n${tFn('killTime', 'ko')}: ${formatJSTFn(killedAt, 'ko')}\n${tFn('nextRespawn', 'ko')}: ${nextStrKo}\n${tFn('byUser', 'ko')} ${user}`,
-      `**${bossNameFn(bossId, 'ja')}** ${tFn('missed', 'ja')}\n${tFn('killTime', 'ja')}: ${formatJSTFn(killedAt, 'ja')}\n${tFn('nextRespawn', 'ja')}: ${nextStrJa}\n${tFn('byUser', 'ja')} ${user}`,
-      bossId
-    );
+    await announceKill(bossId, killedAt, endTime, 'missed', interaction.user.toString(), false);
     return;
   }
 }

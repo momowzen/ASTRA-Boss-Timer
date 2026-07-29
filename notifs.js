@@ -132,10 +132,11 @@ export async function startNotifLoop() {
         if (remainingMs <= 5 * 60 * 1000 && remainingMs > 0 && !sentSoonNotifs.has(cycleKey)) {
           sentSoonNotifs.add(cycleKey);
           const notifId = `${id}_soon_${info.endTime}`;
+          const prefix = config.pingHere ? '@here\n' : '';
           const msgs = await sendAllNotifsFn(
-            `**${bossNameFn(id, 'en')}** ${tFn('spawning', 'en')}\n${tFn('spawnTime', 'en')}: ${formatJSTFn(info.endTime, 'en')}`,
-            `**${bossNameFn(id, 'ko')}** ${tFn('spawning', 'ko')}\n${tFn('spawnTime', 'ko')}: ${formatJSTFn(info.endTime, 'ko')}`,
-            `**${bossNameFn(id, 'ja')}** ${tFn('spawning', 'ja')}\n${tFn('spawnTime', 'ja')}: ${formatJSTFn(info.endTime, 'ja')}`,
+            `${prefix}**${bossNameFn(id, 'en')}** ${tFn('spawning', 'en')}\n${tFn('spawnTime', 'en')}: ${formatJSTFn(info.endTime, 'en')}`,
+            `${prefix}**${bossNameFn(id, 'ko')}** ${tFn('spawning', 'ko')}\n${tFn('spawnTime', 'ko')}: ${formatJSTFn(info.endTime, 'ko')}`,
+            `${prefix}**${bossNameFn(id, 'ja')}** ${tFn('spawning', 'ja')}\n${tFn('spawnTime', 'ja')}: ${formatJSTFn(info.endTime, 'ja')}`,
             id, hasButtons
           );
           if (msgs.en || msgs.ko || msgs.ja) notifMessageCache.set(id, msgs);
