@@ -90,8 +90,8 @@ export async function speak(text) {
       body: JSON.stringify({ input: text, voice, response_format: 'mp3', speed: 1.0 }),
     });
     if (!response.ok) throw new Error(`Edge TTS returned ${response.status}`);
-    const stream = Readable.fromWeb(response.body);
-    audioPlayer.play(createAudioResource(stream));
+    const buffer = Buffer.from(await response.arrayBuffer());
+    audioPlayer.play(createAudioResource(Readable.from(buffer)));
   } catch (e) { console.error('[TTS] error:', e.message); isSpeaking = false; }
 }
 
