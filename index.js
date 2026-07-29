@@ -263,6 +263,16 @@ client.once('clientReady', async () => {
   await loadConfig();
   await loadTimers();
 
+  // Clean up old history entries
+  try {
+    const cutoff = new Date(Date.now() - HISTORY_TTL_DAYS * 86400000);
+    const oldDocs = await db.collection('history').where('timestamp', '<', cutoff.getTime()).limit(500).get();
+    const batch = db.batch();
+    for (const doc of oldDocs.docs) batch.delete(doc.ref);
+    await batch.commit();
+    if (oldDocs.size > 0) console.log(`Cleaned up ${oldDocs.size} old history entries`);
+  } catch (e) { console.error('History cleanup error:', e.message); }
+
   try {
     const snapshot = await db.collection('notifications').where('type', '==', 'spawning').get();
     for (const doc of snapshot.docs) {
