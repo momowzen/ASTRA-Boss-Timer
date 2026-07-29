@@ -165,15 +165,18 @@ function detectLang(content) {
 async function loadConfig() {
   const doc = await db.collection('config').doc('discordBot').get();
   if (doc.exists) {
-    config = { ...config, ...doc.data() };
+    const data = doc.data();
+    for (const key of Object.keys(config)) delete config[key];
+    Object.assign(config, { channels: { en: null, ko: null, ja: null }, voice: null, voiceLang: 'en' }, data);
     if (config.voice && typeof config.voice === 'object') config.voice = config.voice.en || null;
   }
 }
 
 async function loadTimers() {
   const doc = await db.collection('timers').doc('global').get();
-  if (doc.exists) timers = doc.data().timers || {};
-  else timers = {};
+  const fresh = doc.exists ? (doc.data().timers || {}) : {};
+  for (const key of Object.keys(timers)) delete timers[key];
+  Object.assign(timers, fresh);
 }
 
 async function saveTimers() {
