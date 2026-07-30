@@ -228,7 +228,7 @@ export async function handleCommand(msg) {
     await replaceSpawnedWithDefeat(boss.id, now, endTime, 'defeated', msg.author.toString());
     await saveTimersFn();
     await addHistoryFn(boss.id, 'killed', now);
-    await announceKill(boss.id, now, endTime, 'defeated', msg.author.toString());
+    speakDefeatedFn(boss.id, endTime);
     return;
   }
 
@@ -245,7 +245,7 @@ export async function handleCommand(msg) {
     await replaceSpawnedWithDefeat(boss.id, result.killedAt, result.endTime, 'manualSet', msg.author.toString());
     await saveTimersFn();
     await addHistoryFn(boss.id, 'killed', result.killedAt);
-    await announceKill(boss.id, result.killedAt, result.endTime, 'manualSet', msg.author.toString());
+    speakDefeatedFn(boss.id, result.endTime);
     return;
   }
 
@@ -263,7 +263,6 @@ export async function handleCommand(msg) {
     await replaceSpawnedWithDefeat(boss.id, timer.endTime, endTime, 'missed', msg.author.toString());
     await saveTimersFn();
     await addHistoryFn(boss.id, 'missed', now);
-    await announceKill(boss.id, timer.endTime, endTime, 'missed', msg.author.toString(), false);
     return;
   }
 
@@ -377,7 +376,7 @@ export async function handleCommand(msg) {
         await replaceSpawnedWithDefeat(boss.id, result.killedAt, result.endTime, 'manualSet', msg.author.toString());
         await saveTimersFn();
         await addHistoryFn(boss.id, 'killed', result.killedAt);
-        await announceKill(boss.id, result.killedAt, result.endTime, 'manualSet', msg.author.toString());
+        speakDefeatedFn(boss.id, result.endTime);
         return;
       }
     }
@@ -393,7 +392,7 @@ export async function handleCommand(msg) {
         await replaceSpawnedWithDefeat(boss.id, now, endTime, 'defeated', msg.author.toString());
         await saveTimersFn();
         await addHistoryFn(boss.id, 'killed', now);
-        await announceKill(boss.id, now, endTime, 'defeated', msg.author.toString());
+        speakDefeatedFn(boss.id, endTime);
         return;
       }
     }
@@ -522,7 +521,7 @@ export async function handleInteraction(interaction) {
     await replaceSpawnedWithDefeat(bossId, now, endTime, 'defeated', interaction.user.toString());
     await saveTimersFn();
     await addHistoryFn(boss.id, 'killed', now);
-    await announceKill(bossId, now, endTime, 'defeated', interaction.user.toString());
+    speakDefeatedFn(bossId, endTime);
     return;
   }
 
@@ -537,7 +536,6 @@ export async function handleInteraction(interaction) {
     await replaceSpawnedWithDefeat(bossId, killedAt, endTime, 'missed', interaction.user.toString());
     await saveTimersFn();
     await addHistoryFn(boss.id, 'missed', now);
-    await announceKill(bossId, killedAt, endTime, 'missed', interaction.user.toString(), false);
     return;
   }
 }
