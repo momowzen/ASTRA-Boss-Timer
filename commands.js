@@ -36,17 +36,18 @@ export function initCommands(deps) {
 }
 
 async function announceKill(bossId, killedAt, endTime, statusKey, user, shouldSpeak = true) {
-  const HEADERS = {
-    defeated: { en: '⚔️ Defeated', ko: '⚔️ 처치', ja: '⚔️ 討伐' },
-    manualSet: { en: '📝 Timer Set', ko: '📝 타이머 설정', ja: '📝 タイマー設定' },
-    missed: { en: '❌ Missed', ko: '❌ 놓침', ja: '❌ 取り逃し' }
+  const EMOJI = { defeated: '⚔️', manualSet: '📝', missed: '❌' };
+  const STATUS = {
+    defeated: { en: 'Defeated', ko: '처치', ja: '討伐' },
+    manualSet: { en: 'Timer Set', ko: '타이머 설정', ja: 'タイマー設定' },
+    missed: { en: 'Missed', ko: '놓침', ja: '取り逃し' }
   };
   const KILL = { en: 'Kill', ko: '처치', ja: '討伐' };
   const NEXT = { en: 'Next', ko: '다음', ja: '次回' };
   await sendAllNotifsFn(
-    `${HEADERS[statusKey].en}\n🕒 ${KILL.en}: ${formatJSTFn(killedAt, 'en')}\n🔄 ${NEXT.en}: ${formatJSTFn(endTime, 'en')}\n👤 ${user}`,
-    `${HEADERS[statusKey].ko}\n🕒 ${KILL.ko}: ${formatJSTFn(killedAt, 'ko')}\n🔄 ${NEXT.ko}: ${formatJSTFn(endTime, 'ko')}\n👤 ${user}`,
-    `${HEADERS[statusKey].ja}\n🕒 ${KILL.ja}: ${formatJSTFn(killedAt, 'ja')}\n🔄 ${NEXT.ja}: ${formatJSTFn(endTime, 'ja')}\n👤 ${user}`,
+    `${EMOJI[statusKey]} **${bossNameFn(bossId, 'en')} ${STATUS[statusKey].en}**\n🕒 ${KILL.en}: ${formatJSTFn(killedAt, 'en')}\n🔄 ${NEXT.en}: ${formatJSTFn(endTime, 'en')}\n👤 ${user}`,
+    `${EMOJI[statusKey]} **${bossNameFn(bossId, 'ko')} ${STATUS[statusKey].ko}**\n🕒 ${KILL.ko}: ${formatJSTFn(killedAt, 'ko')}\n🔄 ${NEXT.ko}: ${formatJSTFn(endTime, 'ko')}\n👤 ${user}`,
+    `${EMOJI[statusKey]} **${bossNameFn(bossId, 'ja')} ${STATUS[statusKey].ja}**\n🕒 ${KILL.ja}: ${formatJSTFn(killedAt, 'ja')}\n🔄 ${NEXT.ja}: ${formatJSTFn(endTime, 'ja')}\n👤 ${user}`,
     bossId
   );
   if (shouldSpeak) speakDefeatedFn(bossId, endTime);
