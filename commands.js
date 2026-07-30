@@ -499,6 +499,7 @@ export async function handleInteraction(interaction) {
   if (action === 'markdead') {
     interaction.deferUpdate().catch(() => {});
     const endTime = now + boss.respawn * 1000;
+    if (timers[boss.id] && Math.abs(timers[boss.id].endTime - endTime) < 2000) return;
     timers[boss.id] = { endTime, startedAt: now };
     resetBossCycleFn(boss.id);
     await removeBossReactionsFn(boss.id).catch(() => {});
@@ -513,6 +514,7 @@ export async function handleInteraction(interaction) {
     const timer = timers[boss.id];
     const killedAt = timer?.endTime || now;
     const endTime = killedAt + 5 * 60 * 1000;
+    if (timers[boss.id] && timers[boss.id].endTime && Math.abs(timers[boss.id].endTime - endTime) < 2000) return;
     timers[boss.id] = { endTime, startedAt: killedAt };
     resetBossCycleFn(boss.id);
     await removeBossReactionsFn(boss.id).catch(() => {});
