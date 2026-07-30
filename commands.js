@@ -36,10 +36,17 @@ export function initCommands(deps) {
 }
 
 async function announceKill(bossId, killedAt, endTime, statusKey, user, shouldSpeak = true) {
+  const HEADERS = {
+    defeated: { en: '⚔️ Defeated', ko: '⚔️ 처치', ja: '⚔️ 討伐' },
+    manualSet: { en: '📝 Timer Set', ko: '📝 타이머 설정', ja: '📝 タイマー設定' },
+    missed: { en: '❌ Missed', ko: '❌ 놓침', ja: '❌ 取り逃し' }
+  };
+  const KILL = { en: 'Kill', ko: '처치', ja: '討伐' };
+  const NEXT = { en: 'Next', ko: '다음', ja: '次回' };
   await sendAllNotifsFn(
-    `**${bossNameFn(bossId, 'en')}** ${tFn(statusKey, 'en')}\n${tFn('killTime', 'en')}: ${formatJSTFn(killedAt, 'en')}\n${tFn('nextRespawn', 'en')}: ${formatJSTFn(endTime, 'en')}\n${tFn('byUser', 'en')} ${user}`,
-    `**${bossNameFn(bossId, 'ko')}** ${tFn(statusKey, 'ko')}\n${tFn('killTime', 'ko')}: ${formatJSTFn(killedAt, 'ko')}\n${tFn('nextRespawn', 'ko')}: ${formatJSTFn(endTime, 'ko')}\n${tFn('byUser', 'ko')} ${user}`,
-    `**${bossNameFn(bossId, 'ja')}** ${tFn(statusKey, 'ja')}\n${tFn('killTime', 'ja')}: ${formatJSTFn(killedAt, 'ja')}\n${tFn('nextRespawn', 'ja')}: ${formatJSTFn(endTime, 'ja')}\n${tFn('byUser', 'ja')} ${user}`,
+    `${HEADERS[statusKey].en}\n🕒 ${KILL.en}: ${formatJSTFn(killedAt, 'en')}\n🔄 ${NEXT.en}: ${formatJSTFn(endTime, 'en')}\n👤 ${user}`,
+    `${HEADERS[statusKey].ko}\n🕒 ${KILL.ko}: ${formatJSTFn(killedAt, 'ko')}\n🔄 ${NEXT.ko}: ${formatJSTFn(endTime, 'ko')}\n👤 ${user}`,
+    `${HEADERS[statusKey].ja}\n🕒 ${KILL.ja}: ${formatJSTFn(killedAt, 'ja')}\n🔄 ${NEXT.ja}: ${formatJSTFn(endTime, 'ja')}\n👤 ${user}`,
     bossId
   );
   if (shouldSpeak) speakDefeatedFn(bossId, endTime);
@@ -260,9 +267,9 @@ export async function handleCommand(msg) {
     await saveTimersFn();
     const user = msg.author.toString();
     await sendAllNotifsFn(
-      `**${bossNameFn(boss.id, 'en')}** ${tFn('cleared', 'en')} ${tFn('byUser', 'en')} ${user}`,
-      `**${bossNameFn(boss.id, 'ko')}** ${tFn('cleared', 'ko')} ${tFn('byUser', 'ko')} ${user}`,
-      `**${bossNameFn(boss.id, 'ja')}** ${tFn('cleared', 'ja')} ${tFn('byUser', 'ja')} ${user}`
+      `🗑️ **${bossNameFn(boss.id, 'en')} Timer Cleared**\n👤 ${user}`,
+      `🗑️ **${bossNameFn(boss.id, 'ko')} 타이머 삭제**\n👤 ${user}`,
+      `🗑️ **${bossNameFn(boss.id, 'ja')} タイマー削除**\n👤 ${user}`
     );
     return;
   }
@@ -327,9 +334,9 @@ export async function handleCommand(msg) {
     await saveTimersFn();
     const user = msg.author.toString();
     await sendAllNotifsFn(
-      `**Tracker Reset** — ${tFn('allReset', 'en')} ${tFn('byUser', 'en')} ${user}`,
-      `**트래커 초기화** — ${tFn('allReset', 'ko')} ${tFn('byUser', 'ko')} ${user}`,
-      `**トラッカーリセット** — ${tFn('allReset', 'ja')} ${tFn('byUser', 'ja')} ${user}`
+      `🔄 **Tracker Reset**\nAll boss timers reset.\n👤 ${user}`,
+      `🔄 **트래커 초기화**\n모든 보스 타이머가 초기화되었습니다.\n👤 ${user}`,
+      `🔄 **トラッカーリセット**\n全ボスタイマーをリセットしました。\n👤 ${user}`
     );
     return;
   }
