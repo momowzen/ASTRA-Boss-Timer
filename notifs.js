@@ -63,12 +63,12 @@ export async function sendAllNotifsFn(contentEn, contentKo, contentJa, bossId, b
   return msgs;
 }
 
-export async function removeBossReactionsFn(bossId) {
+export async function removeBossReactionsFn(bossId, contents = null) {
   const cached = notifMessageCache.get(bossId);
   if (cached) {
     const tasks = [];
     for (const [lang, msg] of Object.entries(cached)) {
-      if (msg) tasks.push(msg.edit({ components: [] }).catch(() => {}));
+      if (msg) tasks.push(msg.edit({ content: contents?.[lang] || msg.content, components: [] }).catch(() => {}));
     }
     await Promise.all(tasks);
     notifMessageCache.delete(bossId);
@@ -86,7 +86,7 @@ export async function removeBossReactionsFn(bossId) {
       allTasks.push((async () => {
         try {
           const msg = await channel.messages.fetch(msgId);
-          if (msg) { await msg.edit({ components: [] }); }
+          if (msg) await msg.edit({ content: contents?.[l] || msg.content, components: [] }).catch(() => {});
         } catch (e) {}
       })());
     }
