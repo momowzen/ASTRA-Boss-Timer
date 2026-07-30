@@ -82,6 +82,8 @@ const HELP_EN = [
   '**⏱ Boss Timer**',
   '`kill <bossname>` → Record boss kill using current JST time.',
   '> Example: `kill Venatus`',
+  '`<bossname> x` → Shortcut to mark a boss as defeated using current JST time.',
+  '> Example: `Venatus x`',
   '`set <bossname> [MMDD] <HHMM>` → Set kill time manually. Date is optional.',
   '> Examples: `set Venatus 1430` \u2022 `set Venatus 0721 1430`',
   '`<bossname> <HHMM>` → Shortcut to set today\'s kill time.',
@@ -115,6 +117,8 @@ const HELP_KO = [
   '**⏱ 보스 타이머**',
   '`처치 <보스명>` → 현재 JST 시간으로 보스 처치를 기록합니다.',
   '> 예시: `처치 베나투스`',
+  '`<보스명> x` → 현재 JST 시간으로 보스 처치를 기록하는 단축 명령입니다.',
+  '> 예시: `베나투스 x`',
   '`설정 <보스명> [월일] <시분>` → 처치 시간을 수동으로 설정합니다. 날짜는 선택 사항입니다.',
   '> 예시: `설정 베나투스 1430` \u2022 `설정 베나투스 0721 1430`',
   '`<보스명> <시분>` → 오늘 날짜의 처치 시간을 설정하는 단축 명령입니다.',
@@ -148,6 +152,8 @@ const HELP_JA = [
   '**⏱ ボスタイマー**',
   '`討伐 <ボス名>` → 現在のJST時間でボス討伐を記録します。',
   '> 例: `討伐 ベナトゥス`',
+  '`<ボス名> x` → 現在のJST時間でボス討伐を記録する省略コマンドです。',
+  '> 例: `ベナトゥス x`',
   '`設定 <ボス名> [月日] <時分>` → 討伐時間を手動で設定します。日付は省略可能です。',
   '> 例: `設定 ベナトゥス 1430` \u2022 `設定 ベナトゥス 0721 1430`',
   '`<ボス名> <時分>` → 今日の日付で討伐時間を設定する省略コマンドです。',
@@ -344,18 +350,35 @@ export async function handleCommand(msg) {
 
   if (!resolved && parts.length >= 2 && !parts[0].startsWith('/')) {
     const parsed = parseBossTimeArgs(parts);
-    if (!parsed) return;
-    const boss = findBossFn(parsed.name, lang);
-    if (boss && !boss.weeklyRespawns) {
-      const result = applySet(boss, parsed.date, parsed.time, msg.author, lang);
-      if (typeof result === 'string') return msg.reply(result);
-      timers[boss.id] = { endTime: result.endTime, startedAt: result.killedAt };
-      resetBossCycleFn(boss.id);
-      removeBossReactionsFn(boss.id).catch(() => {});
-      await saveTimersFn();
-      await addHistoryFn(boss.id, 'killed', result.killedAt);
-      await announceKill(boss.id, result.killedAt, result.endTime, 'manualSet', msg.author.toString());
-      return;
+    if (parsed) {
+      const boss = findBossFn(parsed.name, lang);
+      if (boss && !boss.weeklyRespawns) {
+        const result = applySet(boss, parsed.date, parsed.time, msg.author, lang);
+        if (typeof result === 'string') return msg.reply(result);
+        timers[boss.id] = { endTime: result.endTime, startedAt: result.killedAt };
+        resetBossCycleFn(boss.id);
+        removeBossReactionsFn(boss.id).catch(() => {});
+        await saveTimersFn();
+        await addHistoryFn(boss.id, 'killed', result.killedAt);
+        await announceKill(boss.id, result.killedAt, result.endTime, 'manualSet', msg.author.toString());
+        return;
+      }
+    }
+
+    const last = parts[parts.length - 1].toLowerCase();
+    if (last === 'x') {
+      const boss = findBossFn(parts.slice(0, -1).join(' '), lang);
+      if (boss && !boss.weeklyRespawns) {
+        const now = Date.now();
+        const endTime = now + boss.respawn * 1000;
+        timers[boss.id] = { endTime, startedAt: now };
+        resetBossCycleFn(boss.id);
+        removeBossReactionsFn(boss.id).catch(() => {});
+        await saveTimersFn();
+        await addHistoryFn(boss.id, 'killed', now);
+        await announceKill(boss.id, now, endTime, 'defeated', msg.author.toString());
+        return;
+      }
     }
   }
 }
