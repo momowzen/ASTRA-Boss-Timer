@@ -90,12 +90,13 @@ function applySet(boss, dateStr, timeStr, user, lang) {
   const hour = parseInt(timeStr.slice(0, 2));
   const minute = parseInt(timeStr.slice(2, 4));
   if (isNaN(hour) || isNaN(minute)) return tFn('invalidTime', lang);
-  const now = new Date();
+  const now = Date.now();
   let killedAt;
   if (dateStr) {
     const month = parseInt(dateStr.slice(0, 2));
     const day = parseInt(dateStr.slice(2, 4));
-    killedAt = new Date(now.getFullYear(), month - 1, day, hour, minute).getTime();
+    const fullYear = new Date(now + TZ_OFFSET).getUTCFullYear();
+    killedAt = Date.UTC(fullYear, month - 1, day, hour - 9, minute);
   } else {
     const jstNow = new Date(now.getTime() + TZ_OFFSET);
     killedAt = new Date(Date.UTC(jstNow.getUTCFullYear(), jstNow.getUTCMonth(), jstNow.getUTCDate(), hour, minute)).getTime() - TZ_OFFSET;
