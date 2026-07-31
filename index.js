@@ -335,6 +335,17 @@ client.once('clientReady', async () => {
     cleanupWorldBoss();
   }, 3600000);
 
+  // Periodically prune old notification docs
+  setInterval(async () => {
+    try {
+      const cutoff = Date.now() - 30 * 60 * 1000;
+      const oldDocs = await db.collection('notifications').where('timestamp', '<', cutoff).limit(100).get();
+      const batch = db.batch();
+      for (const doc of oldDocs.docs) batch.delete(doc.ref);
+      if (oldDocs.size > 0) { await batch.commit(); console.log(`Pruned ${oldDocs.size} old notification docs`); }
+    } catch (e) { console.error('Notification prune error:', e.message); }
+  }, 3600000);
+
   const commands = [{
     name: 'setup',
     nameLocalizations: { ko: '설정', ja: 'せってい' },

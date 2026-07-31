@@ -35,16 +35,6 @@ export function initCommands(deps) {
   notifMessageCache = deps.notifMessageCache;
 }
 
-async function announceKill(bossId, killedAt, endTime, statusKey, user, shouldSpeak = true) {
-  await sendAllNotifsFn(
-    `${EMOJI[statusKey]} **${bossNameFn(bossId, 'en')} ${STATUS[statusKey].en}**\n🕒 ${KILL.en}: ${formatJSTFn(killedAt, 'en')}\n🔄 ${NEXT.en}: ${formatJSTFn(endTime, 'en')}\n👤 ${user}`,
-    `${EMOJI[statusKey]} **${bossNameFn(bossId, 'ko')} ${STATUS[statusKey].ko}**\n🕒 ${KILL.ko}: ${formatJSTFn(killedAt, 'ko')}\n🔄 ${NEXT.ko}: ${formatJSTFn(endTime, 'ko')}\n👤 ${user}`,
-    `${EMOJI[statusKey]} **${bossNameFn(bossId, 'ja')} ${STATUS[statusKey].ja}**\n🕒 ${KILL.ja}: ${formatJSTFn(killedAt, 'ja')}\n🔄 ${NEXT.ja}: ${formatJSTFn(endTime, 'ja')}\n👤 ${user}`,
-    bossId
-  );
-  if (shouldSpeak) speakDefeatedFn(bossId, endTime);
-}
-
 const TAG = {
   defeated: { en: 'DEFEATED', ko: '처치', ja: '討伐' },
   manualSet: { en: 'SET', ko: '설정', ja: '設定' },

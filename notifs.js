@@ -66,13 +66,16 @@ export async function sendAllNotifsFn(contentEn, contentKo, contentJa, bossId, b
 export async function removeBossReactionsFn(bossId, contents = null) {
   const cached = notifMessageCache.get(bossId);
   if (cached) {
+    let anyEdited = false;
     const tasks = [];
     for (const [lang, msg] of Object.entries(cached)) {
-      if (msg) tasks.push(msg.edit({ content: contents?.[lang] || msg.content, components: [] }).catch(() => {}));
+      if (msg) tasks.push((async () => {
+        try { await msg.edit({ content: contents?.[lang] || msg.content, components: [] }); anyEdited = true; } catch (e) {}
+      })());
     }
     await Promise.all(tasks);
     notifMessageCache.delete(bossId);
-    return true;
+    return anyEdited;
   }
   const snapshot = await db.collection('notifications').where('bossId', '==', bossId).get();
   if (snapshot.empty) return false;
@@ -94,6 +97,9 @@ export async function removeBossReactionsFn(bossId, contents = null) {
     }
   }
   await Promise.all(allTasks);
+  for (const doc of snapshot.docs) {
+    try { await doc.ref.delete(); } catch (e) {}
+  }
   return anyEdited;
 }
 
