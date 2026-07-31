@@ -55,11 +55,15 @@ const KILL = { en: 'Kill', ko: '처치', ja: '討伐' };
 const NEXT = { en: 'Next', ko: '다음', ja: '次回' };
 
 async function replaceSpawnedWithDefeat(bossId, killedAt, endTime, statusKey, user) {
-  await removeBossReactionsFn(bossId, {
+  const contents = {
     en: `${EMOJI[statusKey]} **${bossNameFn(bossId, 'en')} ${STATUS[statusKey].en}**\n🕒 ${KILL.en}: ${formatJSTFn(killedAt, 'en')}\n🔄 ${NEXT.en}: ${formatJSTFn(endTime, 'en')}\n👤 ${user}`,
     ko: `${EMOJI[statusKey]} **${bossNameFn(bossId, 'ko')} ${STATUS[statusKey].ko}**\n🕒 ${KILL.ko}: ${formatJSTFn(killedAt, 'ko')}\n🔄 ${NEXT.ko}: ${formatJSTFn(endTime, 'ko')}\n👤 ${user}`,
     ja: `${EMOJI[statusKey]} **${bossNameFn(bossId, 'ja')} ${STATUS[statusKey].ja}**\n🕒 ${KILL.ja}: ${formatJSTFn(killedAt, 'ja')}\n🔄 ${NEXT.ja}: ${formatJSTFn(endTime, 'ja')}\n👤 ${user}`
-  }).catch(() => {});
+  };
+  const edited = await removeBossReactionsFn(bossId, contents);
+  if (!edited) {
+    await sendAllNotifsFn(contents.en, contents.ko, contents.ja, bossId);
+  }
 }
 
 function parseBossTimeArgs(args) {

@@ -72,9 +72,10 @@ export async function removeBossReactionsFn(bossId, contents = null) {
     }
     await Promise.all(tasks);
     notifMessageCache.delete(bossId);
-    return;
+    return true;
   }
   const snapshot = await db.collection('notifications').where('bossId', '==', bossId).get();
+  if (snapshot.empty) return false;
   const allTasks = [];
   for (const doc of snapshot.docs) {
     const data = doc.data();
@@ -92,6 +93,7 @@ export async function removeBossReactionsFn(bossId, contents = null) {
     }
   }
   await Promise.all(allTasks);
+  return true;
 }
 
 export function resetBossCycleFn(bossId) {
