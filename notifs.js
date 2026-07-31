@@ -76,6 +76,7 @@ export async function removeBossReactionsFn(bossId, contents = null) {
   }
   const snapshot = await db.collection('notifications').where('bossId', '==', bossId).get();
   if (snapshot.empty) return false;
+  let anyEdited = false;
   const allTasks = [];
   for (const doc of snapshot.docs) {
     const data = doc.data();
@@ -87,13 +88,13 @@ export async function removeBossReactionsFn(bossId, contents = null) {
       allTasks.push((async () => {
         try {
           const msg = await channel.messages.fetch(msgId);
-          if (msg) await msg.edit({ content: contents?.[l] || msg.content, components: [] }).catch(() => {});
+          if (msg) { await msg.edit({ content: contents?.[l] || msg.content, components: [] }); anyEdited = true; }
         } catch (e) {}
       })());
     }
   }
   await Promise.all(allTasks);
-  return true;
+  return anyEdited;
 }
 
 export function resetBossCycleFn(bossId) {
