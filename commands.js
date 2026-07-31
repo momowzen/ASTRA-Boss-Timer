@@ -60,7 +60,8 @@ async function replaceSpawnedWithDefeat(bossId, killedAt, endTime, statusKey, us
     ko: `${EMOJI[statusKey]} **${bossNameFn(bossId, 'ko')} ${STATUS[statusKey].ko}**\n🕒 ${KILL.ko}: ${formatJSTFn(killedAt, 'ko')}\n🔄 ${NEXT.ko}: ${formatJSTFn(endTime, 'ko')}\n👤 ${user}`,
     ja: `${EMOJI[statusKey]} **${bossNameFn(bossId, 'ja')} ${STATUS[statusKey].ja}**\n🕒 ${KILL.ja}: ${formatJSTFn(killedAt, 'ja')}\n🔄 ${NEXT.ja}: ${formatJSTFn(endTime, 'ja')}\n👤 ${user}`
   };
-  const edited = await removeBossReactionsFn(bossId, contents);
+  let edited = false;
+  try { edited = await removeBossReactionsFn(bossId, contents); } catch (e) {}
   if (!edited) {
     await sendAllNotifsFn(contents.en, contents.ko, contents.ja, bossId);
   }
