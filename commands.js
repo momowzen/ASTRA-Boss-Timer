@@ -45,20 +45,29 @@ async function announceKill(bossId, killedAt, endTime, statusKey, user, shouldSp
   if (shouldSpeak) speakDefeatedFn(bossId, endTime);
 }
 
-const EMOJI = { defeated: '⚔️', manualSet: '📝', missed: '❌' };
-const STATUS = {
-  defeated: { en: 'Defeated', ko: '처치', ja: '討伐' },
-  manualSet: { en: 'Timer Set', ko: '타이머 설정', ja: 'タイマー設定' },
-  missed: { en: 'Missed', ko: '놓침', ja: '取り逃し' }
+const TAG = {
+  defeated: { en: 'DEFEATED', ko: '처치', ja: '討伐' },
+  manualSet: { en: 'SET', ko: '설정', ja: '設定' },
+  missed: { en: 'MISSED', ko: '놓침', ja: '取り逃し' }
 };
 const KILL = { en: 'Kill', ko: '처치', ja: '討伐' };
 const NEXT = { en: 'Next', ko: '다음', ja: '次回' };
+const BY = { en: 'By', ko: '기록', ja: '記録' };
 
 async function replaceSpawnedWithDefeat(bossId, killedAt, endTime, statusKey, user) {
+  const nameEn = bossNameFn(bossId, 'en');
+  const nameKo = bossNameFn(bossId, 'ko');
+  const nameJa = bossNameFn(bossId, 'ja');
+  const killEn = formatSpawnTimeFn(killedAt);
+  const killKo = formatSpawnTimeFn(killedAt);
+  const killJa = formatSpawnTimeFn(killedAt);
+  const nextEn = formatSpawnTimeFn(endTime);
+  const nextKo = formatSpawnTimeFn(endTime);
+  const nextJa = formatSpawnTimeFn(endTime);
   const contents = {
-    en: `${EMOJI[statusKey]} **${bossNameFn(bossId, 'en')} ${STATUS[statusKey].en}**\n🕒 ${KILL.en}: ${formatJSTFn(killedAt, 'en')}\n🔄 ${NEXT.en}: ${formatJSTFn(endTime, 'en')}\n👤 ${user}`,
-    ko: `${EMOJI[statusKey]} **${bossNameFn(bossId, 'ko')} ${STATUS[statusKey].ko}**\n🕒 ${KILL.ko}: ${formatJSTFn(killedAt, 'ko')}\n🔄 ${NEXT.ko}: ${formatJSTFn(endTime, 'ko')}\n👤 ${user}`,
-    ja: `${EMOJI[statusKey]} **${bossNameFn(bossId, 'ja')} ${STATUS[statusKey].ja}**\n🕒 ${KILL.ja}: ${formatJSTFn(killedAt, 'ja')}\n🔄 ${NEXT.ja}: ${formatJSTFn(endTime, 'ja')}\n👤 ${user}`
+    en: `[${TAG[statusKey].en}] ${nameEn}\n${KILL.en}: ${killEn} | ${NEXT.en}: ${nextEn}\n${BY.en}: ${user}`,
+    ko: `[${TAG[statusKey].ko}] ${nameKo}\n${KILL.ko}: ${killKo} | ${NEXT.ko}: ${nextKo}\n${BY.ko}: ${user}`,
+    ja: `[${TAG[statusKey].ja}] ${nameJa}\n${KILL.ja}: ${killJa} | ${NEXT.ja}: ${nextJa}\n${BY.ja}: ${user}`
   };
   let edited = false;
   try { edited = await removeBossReactionsFn(bossId, contents); } catch (e) {}
@@ -266,9 +275,9 @@ export async function handleCommand(msg) {
     await saveTimersFn();
     const user = msg.author.toString();
     await sendAllNotifsFn(
-      `🗑️ **${bossNameFn(boss.id, 'en')} Timer Cleared**\n👤 ${user}`,
-      `🗑️ **${bossNameFn(boss.id, 'ko')} 타이머 삭제**\n👤 ${user}`,
-      `🗑️ **${bossNameFn(boss.id, 'ja')} タイマー削除**\n👤 ${user}`
+      `[CLEARED] ${bossNameFn(boss.id, 'en')}\nTimer removed\n${BY.en}: ${user}`,
+      `[삭제] ${bossNameFn(boss.id, 'ko')}\n타이머 삭제됨\n${BY.ko}: ${user}`,
+      `[解除] ${bossNameFn(boss.id, 'ja')}\nタイマー削除済み\n${BY.ja}: ${user}`
     );
     return;
   }
@@ -333,9 +342,9 @@ export async function handleCommand(msg) {
     await saveTimersFn();
     const user = msg.author.toString();
     await sendAllNotifsFn(
-      `🔄 **Tracker Reset**\nAll boss timers reset.\n👤 ${user}`,
-      `🔄 **트래커 초기화**\n모든 보스 타이머가 초기화되었습니다.\n👤 ${user}`,
-      `🔄 **トラッカーリセット**\n全ボスタイマーをリセットしました。\n👤 ${user}`
+      `[RESET] Boss Tracker\nAll interval timers reset\n${BY.en}: ${user}`,
+      `[초기화] 보스 타이머\n모든 고정 주기 타이머가 초기화되었습니다.\n${BY.ko}: ${user}`,
+      `[リセット] ボスタイマー\nすべての固定周期タイマーをリセットしました。\n${BY.ja}: ${user}`
     );
     return;
   }
