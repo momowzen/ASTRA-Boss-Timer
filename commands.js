@@ -44,7 +44,7 @@ const KILL = { en: 'Kill', ko: '처치', ja: '討伐' };
 const NEXT = { en: 'Next', ko: '다음', ja: '次回' };
 const BY = { en: 'By', ko: '기록', ja: '記録' };
 
-async function replaceSpawnedWithDefeat(bossId, killedAt, endTime, statusKey, user) {
+async function sendDefeatNotification(bossId, killedAt, endTime, statusKey, user) {
   const nameEn = bossNameFn(bossId, 'en');
   const nameKo = bossNameFn(bossId, 'ko');
   const nameJa = bossNameFn(bossId, 'ja');
@@ -54,16 +54,13 @@ async function replaceSpawnedWithDefeat(bossId, killedAt, endTime, statusKey, us
   const nextEn = formatSpawnTimeFn(endTime);
   const nextKo = formatSpawnTimeFn(endTime);
   const nextJa = formatSpawnTimeFn(endTime);
-  const contents = {
-    en: `[${TAG[statusKey].en}] ${nameEn}\n${KILL.en}: ${killEn} | ${NEXT.en}: ${nextEn}\n${BY.en}: ${user}`,
-    ko: `[${TAG[statusKey].ko}] ${nameKo}\n${KILL.ko}: ${killKo} | ${NEXT.ko}: ${nextKo}\n${BY.ko}: ${user}`,
-    ja: `[${TAG[statusKey].ja}] ${nameJa}\n${KILL.ja}: ${killJa} | ${NEXT.ja}: ${nextJa}\n${BY.ja}: ${user}`
-  };
-  let edited = false;
-  try { edited = await removeBossReactionsFn(bossId, contents); } catch (e) {}
-  if (!edited) {
-    await sendAllNotifsFn(contents.en, contents.ko, contents.ja, bossId);
-  }
+  removeBossReactionsFn(bossId).catch(() => {});
+  await sendAllNotifsFn(
+    `[${TAG[statusKey].en}] ${nameEn}\n${KILL.en}: ${killEn} | ${NEXT.en}: ${nextEn}\n${BY.en}: ${user}`,
+    `[${TAG[statusKey].ko}] ${nameKo}\n${KILL.ko}: ${killKo} | ${NEXT.ko}: ${nextKo}\n${BY.ko}: ${user}`,
+    `[${TAG[statusKey].ja}] ${nameJa}\n${KILL.ja}: ${killJa} | ${NEXT.ja}: ${nextJa}\n${BY.ja}: ${user}`,
+    bossId
+  );
 }
 
 function parseBossTimeArgs(args) {
@@ -215,7 +212,7 @@ export async function handleCommand(msg) {
     const endTime = now + boss.respawn * 1000;
     timers[boss.id] = { endTime, startedAt: now };
     resetBossCycleFn(boss.id);
-    await replaceSpawnedWithDefeat(boss.id, now, endTime, 'defeated', msg.author.toString());
+    await sendDefeatNotification(boss.id, now, endTime, 'defeated', msg.author.toString());
     await saveTimersFn();
     await addHistoryFn(boss.id, 'killed', now);
     speakDefeatedFn(boss.id, endTime);
@@ -232,7 +229,7 @@ export async function handleCommand(msg) {
     if (typeof result === 'string') return msg.reply(result);
     timers[boss.id] = { endTime: result.endTime, startedAt: result.killedAt };
     resetBossCycleFn(boss.id);
-    await replaceSpawnedWithDefeat(boss.id, result.killedAt, result.endTime, 'manualSet', msg.author.toString());
+    await sendDefeatNotification(boss.id, result.killedAt, result.endTime, 'manualSet', msg.author.toString());
     await saveTimersFn();
     await addHistoryFn(boss.id, 'killed', result.killedAt);
     speakDefeatedFn(boss.id, result.endTime);
@@ -250,7 +247,7 @@ export async function handleCommand(msg) {
     const endTime = timer.endTime + 5 * 60 * 1000;
     timers[boss.id] = { endTime, startedAt: timer.endTime };
     resetBossCycleFn(boss.id);
-    await replaceSpawnedWithDefeat(boss.id, timer.endTime, endTime, 'missed', msg.author.toString());
+    await sendDefeatNotification(boss.id, timer.endTime, endTime, 'missed', msg.author.toString());
     await saveTimersFn();
     await addHistoryFn(boss.id, 'missed', now);
     return;
@@ -363,7 +360,7 @@ export async function handleCommand(msg) {
         if (typeof result === 'string') return msg.reply(result);
         timers[boss.id] = { endTime: result.endTime, startedAt: result.killedAt };
         resetBossCycleFn(boss.id);
-        await replaceSpawnedWithDefeat(boss.id, result.killedAt, result.endTime, 'manualSet', msg.author.toString());
+        await sendDefeatNotification(boss.id, result.killedAt, result.endTime, 'manualSet', msg.author.toString());
         await saveTimersFn();
         await addHistoryFn(boss.id, 'killed', result.killedAt);
         speakDefeatedFn(boss.id, result.endTime);
@@ -379,7 +376,7 @@ export async function handleCommand(msg) {
         const endTime = now + boss.respawn * 1000;
         timers[boss.id] = { endTime, startedAt: now };
         resetBossCycleFn(boss.id);
-        await replaceSpawnedWithDefeat(boss.id, now, endTime, 'defeated', msg.author.toString());
+        await sendDefeatNotification(boss.id, now, endTime, 'defeated', msg.author.toString());
         await saveTimersFn();
         await addHistoryFn(boss.id, 'killed', now);
         speakDefeatedFn(boss.id, endTime);
@@ -508,7 +505,7 @@ export async function handleInteraction(interaction) {
     if (timers[boss.id] && Math.abs(timers[boss.id].endTime - endTime) < 2000) return;
     timers[boss.id] = { endTime, startedAt: now };
     resetBossCycleFn(boss.id);
-    await replaceSpawnedWithDefeat(bossId, now, endTime, 'defeated', interaction.user.toString());
+    await sendDefeatNotification(bossId, now, endTime, 'defeated', interaction.user.toString());
     await saveTimersFn();
     await addHistoryFn(boss.id, 'killed', now);
     speakDefeatedFn(bossId, endTime);
@@ -523,7 +520,7 @@ export async function handleInteraction(interaction) {
     if (timers[boss.id] && timers[boss.id].endTime && Math.abs(timers[boss.id].endTime - endTime) < 2000) return;
     timers[boss.id] = { endTime, startedAt: killedAt };
     resetBossCycleFn(boss.id);
-    await replaceSpawnedWithDefeat(bossId, killedAt, endTime, 'missed', interaction.user.toString());
+    await sendDefeatNotification(bossId, killedAt, endTime, 'missed', interaction.user.toString());
     await saveTimersFn();
     await addHistoryFn(boss.id, 'missed', now);
     return;
