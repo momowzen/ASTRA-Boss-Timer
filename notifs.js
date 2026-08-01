@@ -143,9 +143,9 @@ export async function startNotifLoop() {
           const notifId = `${id}_soon_${info.endTime}`;
           const prefix = config.pingHere ? '\n@here' : '';
           const msgs = await sendAllNotifsFn(
-            `[SPAWNING] ${bossNameFn(id, 'en')}\nSpawn: ${formatJSTFn(info.endTime, 'en')}${prefix}`,
-            `[출현 예정] ${bossNameFn(id, 'ko')}\n출현: ${formatJSTFn(info.endTime, 'ko')}${prefix}`,
-            `[出現予定] ${bossNameFn(id, 'ja')}\n出現: ${formatJSTFn(info.endTime, 'ja')}${prefix}`,
+            `**[**\`SPAWNING\`**] ${bossNameFn(id, 'en')}**\nSpawn: ${formatJSTFn(info.endTime, 'en')}${prefix}`,
+            `**[**\`출현 예정\`**] ${bossNameFn(id, 'ko')}**\n출현: ${formatJSTFn(info.endTime, 'ko')}${prefix}`,
+            `**[**\`出現予定\`**] ${bossNameFn(id, 'ja')}**\n出現: ${formatJSTFn(info.endTime, 'ja')}${prefix}`,
             id, hasButtons
           );
           if (msgs.en || msgs.ko || msgs.ja) notifMessageCache.set(id, msgs);
@@ -161,15 +161,15 @@ export async function startNotifLoop() {
           const cached = notifMessageCache.get(id);
           if (cached) {
             const edits = [];
-          if (cached.en) edits.push(cached.en.edit({ content: `[SPAWNED] ${bossNameFn(id, 'en')}`, components: cached.en.components }).catch(() => {}));
-          if (cached.ko) edits.push(cached.ko.edit({ content: `[출현] ${bossNameFn(id, 'ko')}`, components: cached.ko.components }).catch(() => {}));
-          if (cached.ja) edits.push(cached.ja.edit({ content: `[出現] ${bossNameFn(id, 'ja')}`, components: cached.ja.components }).catch(() => {}));
+          if (cached.en) edits.push(cached.en.edit({ content: `**[**\`SPAWNED\`**] ${bossNameFn(id, 'en')}**`, components: cached.en.components }).catch(() => {}));
+          if (cached.ko) edits.push(cached.ko.edit({ content: `**[**\`출현\`**] ${bossNameFn(id, 'ko')}**`, components: cached.ko.components }).catch(() => {}));
+          if (cached.ja) edits.push(cached.ja.edit({ content: `**[**\`出現\`**] ${bossNameFn(id, 'ja')}**`, components: cached.ja.components }).catch(() => {}));
             await Promise.all(edits);
           } else {
             await sendAllNotifsFn(
-              `[SPAWNED] ${bossNameFn(id, 'en')}`,
-              `[출현] ${bossNameFn(id, 'ko')}`,
-              `[出現] ${bossNameFn(id, 'ja')}`,
+              `**[**\`SPAWNED\`**] ${bossNameFn(id, 'en')}**`,
+              `**[**\`출현\`**] ${bossNameFn(id, 'ko')}**`,
+              `**[**\`出現\`**] ${bossNameFn(id, 'ja')}**`,
               false
             );
           }

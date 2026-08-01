@@ -56,9 +56,9 @@ async function sendDefeatNotification(bossId, killedAt, endTime, statusKey, user
   const nextJa = formatSpawnTimeFn(endTime);
   removeBossReactionsFn(bossId).catch(() => {});
   await sendAllNotifsFn(
-    `[${TAG[statusKey].en}] ${nameEn}\n${KILL.en}: ${killEn} | ${NEXT.en}: ${nextEn}\n${BY.en}: ${user}`,
-    `[${TAG[statusKey].ko}] ${nameKo}\n${KILL.ko}: ${killKo} | ${NEXT.ko}: ${nextKo}\n${BY.ko}: ${user}`,
-    `[${TAG[statusKey].ja}] ${nameJa}\n${KILL.ja}: ${killJa} | ${NEXT.ja}: ${nextJa}\n${BY.ja}: ${user}`,
+    `**[**\`${TAG[statusKey].en}\`**] ${nameEn}**\n${KILL.en}: ${killEn} | ${NEXT.en}: ${nextEn}\n${BY.en}: ${user}`,
+    `**[**\`${TAG[statusKey].ko}\`**] ${nameKo}**\n${KILL.ko}: ${killKo} | ${NEXT.ko}: ${nextKo}\n${BY.ko}: ${user}`,
+    `**[**\`${TAG[statusKey].ja}\`**] ${nameJa}**\n${KILL.ja}: ${killJa} | ${NEXT.ja}: ${nextJa}\n${BY.ja}: ${user}`,
     bossId
   );
 }
@@ -263,9 +263,9 @@ export async function handleCommand(msg) {
     await saveTimersFn();
     const user = msg.author.toString();
     await sendAllNotifsFn(
-      `[CLEARED] ${bossNameFn(boss.id, 'en')}\nTimer removed\n${BY.en}: ${user}`,
-      `[삭제] ${bossNameFn(boss.id, 'ko')}\n타이머 삭제됨\n${BY.ko}: ${user}`,
-      `[解除] ${bossNameFn(boss.id, 'ja')}\nタイマー削除済み\n${BY.ja}: ${user}`
+      `**[**\`CLEARED\`**] ${bossNameFn(boss.id, 'en')}**\n${BY.en}: ${user}`,
+      `**[**\`삭제\`**] ${bossNameFn(boss.id, 'ko')}**\n${BY.ko}: ${user}`,
+      `**[**\`解除\`**] ${bossNameFn(boss.id, 'ja')}**\n${BY.ja}: ${user}`
     );
     return;
   }
@@ -330,9 +330,9 @@ export async function handleCommand(msg) {
     await saveTimersFn();
     const user = msg.author.toString();
     await sendAllNotifsFn(
-      `[RESET] Boss Tracker\nAll interval timers reset\n${BY.en}: ${user}`,
-      `[초기화] 보스 타이머\n모든 고정 주기 타이머가 초기화되었습니다.\n${BY.ko}: ${user}`,
-      `[リセット] ボスタイマー\nすべての固定周期タイマーをリセットしました。\n${BY.ja}: ${user}`
+      `**[**\`RESET\`**] Boss Tracker**\nAll interval timers reset.\n${BY.en}: ${user}`,
+      `**[**\`초기화\`**] 보스 타이머**\n모든 고정 주기 타이머가 초기화되었습니다.\n${BY.ko}: ${user}`,
+      `**[**\`リセット\`**] ボスタイマー**\nすべての固定周期タイマーをリセットしました。\n${BY.ja}: ${user}`
     );
     return;
   }
