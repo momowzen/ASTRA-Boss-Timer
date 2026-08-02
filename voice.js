@@ -14,7 +14,7 @@ let TTS_SPAWN_IN, TTS_SPAWNED, TTS_DEFEATED, TTS_SET, TTS_MISSED;
 let WORLD_BOSS_TIMES, TTS_WORLD_BOSS_IN, TTS_WORLD_BOSS_SPAWNED;
 
 const EDGE_VOICES = {
-  en: 'en-US-AnaNeural',
+  en: 'en-US-AriaNeural',
   ko: 'ko-KR-SunHiNeural',
   ja: 'ja-JP-NanamiNeural',
 };
