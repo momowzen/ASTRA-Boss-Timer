@@ -64,24 +64,21 @@ function buildTableBlocks(rows, title, lang) {
   const G = '   ', S = 12, R = 10, B = 20, total = S + G.length + R + G.length + B;
   const header = padL(tFn('colSpawn', lang), S) + G + padC(tFn('colRemaining', lang), R) + G + padR(tFn('colBoss', lang), B);
   const sep = '-'.repeat(total);
-  const trimTail = (s) => s.replace(/\s+(\u001b\[0m)$/, '$1');
   const rowLines = rows.map(row => {
     const spawnStr = row.spawnMs ? formatSpawnTimeFn(row.spawnMs) : '---';
     const remMs = row.spawnMs ? row.spawnMs - Date.now() : null;
     const remStr = remMs !== null ? formatRemainingFn(remMs) : '---';
     const remColor = remMs !== null ? remainingColor(remMs) : ANSI.white;
-    return trimTail(ANSI.white(padL(spawnStr, S)) + G + remColor(padC(remStr, R)) + G + ANSI.yellow(padR(row.name, B)));
+    return ANSI.white(padL(spawnStr, S)) + G + remColor(padC(remStr, R)) + G + ANSI.yellow(padR(row.name, B));
   });
   const titleLines = [ANSI.cyan(title), ''];
-  const headLines = [trimTail(ANSI.cyan(header)), ANSI.gray(sep)];
+  const headLines = [ANSI.cyan(header), ANSI.gray(sep)];
   const fence = (lines) => ['```ansi', ...lines, '```'].join('\n');
   const single = fence([...titleLines, ...headLines, ...rowLines]);
   if (single.length <= 2000) return [single];
-  const headLen = fence([...titleLines, ...headLines]).length + 1;
-  const perChunk = Math.max(8, Math.floor((2000 - headLen) / (rowLines[0].length + 1)));
-  const blocks = [];
-  for (let i = 0; i < rowLines.length; i += perChunk) {
-    blocks.push(fence([...(i === 0 ? titleLines : []), ...headLines, ...rowLines.slice(i, i + perChunk)]));
+  const blocks = [fence([...titleLines, ...headLines, ...rowLines.slice(0, 12)])];
+  for (let i = 12; i < rowLines.length; i += 12) {
+    blocks.push(fence([...headLines, ...rowLines.slice(i, i + 12)]));
   }
   return blocks;
 }
