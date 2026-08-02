@@ -53,12 +53,13 @@ const ANSI = {
   white: (s) => `\u001b[0;37m${s}${ANSI_RESET}`,
   green: (s) => `\u001b[1;32m${s}${ANSI_RESET}`,
   yellow: (s) => `\u001b[1;33m${s}${ANSI_RESET}`,
+  lightYellow: (s) => `\u001b[0;93m${s}${ANSI_RESET}`,
   red: (s) => `\u001b[1;31m${s}${ANSI_RESET}`
 };
 
 function remainingColor(ms) {
   if (ms < 3600000) return ANSI.red;
-  if (ms < 10800000) return ANSI.yellow;
+  if (ms < 10800000) return ANSI.lightYellow;
   return ANSI.green;
 }
 
