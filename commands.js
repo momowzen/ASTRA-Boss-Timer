@@ -342,7 +342,7 @@ export async function handleCommand(msg) {
     }
     if (bosses.length === 0) return msg.reply(tFn('noActiveBosses', lang));
     bosses.sort((a, b) => a.time - b.time);
-    const blocks = buildTableBlocks(bosses.map(({ boss, time }) => ({ spawnMs: time, name: bossNameFn(boss.id, lang) })), tFn('upcomingField', lang).toUpperCase(), lang);
+    const blocks = buildTableBlocks(bosses.slice(0, 10).map(({ boss, time }) => ({ spawnMs: time, name: bossNameFn(boss.id, lang) })), tFn('upcomingField', lang).toUpperCase(), lang);
     for (const block of blocks) await msg.reply(block);
     return;
   }
