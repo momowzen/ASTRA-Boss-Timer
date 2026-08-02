@@ -252,7 +252,11 @@ client.on('messageCreate', async (msg) => {
     return CMD_MAP[lower] || null;
   })(msg.content.trim().split(/\s+/)[0]);
   if (resolved || content === '/tracker_commands' || /\S/.test(msg.content.trim())) {
-    await handleCommand(msg);
+    try {
+      await handleCommand(msg);
+    } catch (e) {
+      console.error('Command error:', e);
+    }
   }
 });
 

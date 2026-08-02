@@ -117,6 +117,7 @@ export async function startNotifLoop() {
       for (const [id, info] of Object.entries(timers)) {
         try {
         if (!info || !info.endTime) continue;
+        if (timers[id] !== info) continue;
         const boss = BOSSES_DATA.find(b => b.id === id);
         if (!boss) continue;
         const hasButtons = !!boss.respawn;
@@ -148,6 +149,7 @@ export async function startNotifLoop() {
             `**[**\`出現予定\`**] ${bossNameFn(id, 'ja')}**\n出現: ${formatJSTFn(info.endTime, 'ja')}${prefix}`,
             id, hasButtons
           );
+          if (timers[id] !== info) continue;
           if (msgs.en || msgs.ko || msgs.ja) notifMessageCache.set(id, msgs);
           const data = { bossId: id, type: 'spawning', timestamp: now };
           for (const l of LANG_LIST) { if (msgs[l]) data[l] = msgs[l].id; }
@@ -155,6 +157,7 @@ export async function startNotifLoop() {
         }
 
         if (remainingMs <= 0 && !sentSpawnedNotifs.has(cycleKey)) {
+          if (timers[id] !== info) continue;
           sentSpawnedNotifs.add(cycleKey);
           speakSpawnedFn(bossNameFn(id, config.voiceLang));
           

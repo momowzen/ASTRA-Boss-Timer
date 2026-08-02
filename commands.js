@@ -85,7 +85,7 @@ function applySet(boss, dateStr, timeStr, user, lang) {
     const fullYear = new Date(now + TZ_OFFSET).getUTCFullYear();
     killedAt = Date.UTC(fullYear, month - 1, day, hour - 9, minute);
   } else {
-    const jstNow = new Date(now.getTime() + TZ_OFFSET);
+    const jstNow = new Date(now + TZ_OFFSET);
     killedAt = new Date(Date.UTC(jstNow.getUTCFullYear(), jstNow.getUTCMonth(), jstNow.getUTCDate(), hour, minute)).getTime() - TZ_OFFSET;
   }
   if (isNaN(killedAt)) return tFn('invalidDate', lang);
