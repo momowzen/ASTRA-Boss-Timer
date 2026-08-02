@@ -53,8 +53,7 @@ const ANSI = {
   white: (s) => `\u001b[0;37m${s}${ANSI_RESET}`,
   green: (s) => `\u001b[1;32m${s}${ANSI_RESET}`,
   yellow: (s) => `\u001b[1;33m${s}${ANSI_RESET}`,
-  red: (s) => `\u001b[1;31m${s}${ANSI_RESET}`,
-  purple: (s) => `\u001b[1;35m${s}${ANSI_RESET}`
+  red: (s) => `\u001b[1;31m${s}${ANSI_RESET}`
 };
 
 function remainingColor(ms) {
@@ -72,7 +71,7 @@ function buildTableBlocks(rows, title, lang) {
     const remMs = row.spawnMs ? row.spawnMs - Date.now() : null;
     const remStr = remMs !== null ? formatRemainingFn(remMs) : '---';
     const remColor = remMs !== null ? remainingColor(remMs) : ANSI.white;
-    return ANSI.white(padL(spawnStr, S)) + G + remColor(padC(remStr, R)) + G + ANSI.purple(padR(row.name, B));
+    return ANSI.white(padL(spawnStr, S)) + G + remColor(padC(remStr, R)) + G + ANSI.yellow(padR(row.name, B));
   });
   const titleLines = [ANSI.cyan(title), ''];
   const headLines = [ANSI.cyan(header), ANSI.gray(sep)];
