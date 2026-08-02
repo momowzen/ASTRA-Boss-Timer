@@ -76,13 +76,16 @@ function parseBossTimeArgs(args) {
 function applySet(boss, dateStr, timeStr, user, lang) {
   const hour = parseInt(timeStr.slice(0, 2));
   const minute = parseInt(timeStr.slice(2, 4));
-  if (isNaN(hour) || isNaN(minute)) return tFn('invalidTime', lang);
+  if (isNaN(hour) || isNaN(minute) || hour < 0 || hour > 23 || minute < 0 || minute > 59) return tFn('invalidTime', lang);
   const now = Date.now();
   let killedAt;
   if (dateStr) {
     const month = parseInt(dateStr.slice(0, 2));
     const day = parseInt(dateStr.slice(2, 4));
+    if (isNaN(month) || isNaN(day) || month < 1 || month > 12 || day < 1 || day > 31) return tFn('invalidDate', lang);
     const fullYear = new Date(now + TZ_OFFSET).getUTCFullYear();
+    const dateProbe = new Date(Date.UTC(fullYear, month - 1, day));
+    if (dateProbe.getUTCMonth() !== month - 1 || dateProbe.getUTCDate() !== day) return tFn('invalidDate', lang);
     killedAt = Date.UTC(fullYear, month - 1, day, hour - 9, minute);
   } else {
     const jstNow = new Date(now + TZ_OFFSET);
@@ -219,9 +222,9 @@ export async function handleCommand(msg) {
     return;
   }
 
-  if (cmd === 'set' && parts.length >= 3) {
+  if (cmd === 'set') {
     const parsed = parseBossTimeArgs(parts.slice(1));
-    if (!parsed) return;
+    if (!parsed) return msg.reply(tFn('invalidTime', lang));
     const boss = findBossFn(parsed.name, lang);
     if (!boss) return msg.reply(`${tFn('bossNotFound', lang)} ${parsed.name}`);
     if (boss.weeklyRespawns) return msg.reply(tFn('scheduleOnly', lang));
@@ -244,7 +247,7 @@ export async function handleCommand(msg) {
     const timer = timers[boss.id];
     if (!timer || !timer.endTime) return msg.reply(`${tFn('noTimer', lang)} ${bossNameFn(boss.id, lang)}`);
     const now = Date.now();
-    const endTime = timer.endTime + 5 * 60 * 1000;
+    const endTime = Math.max(timer.endTime, now) + 5 * 60 * 1000;
     timers[boss.id] = { endTime, startedAt: timer.endTime };
     resetBossCycleFn(boss.id);
     await sendDefeatNotification(boss.id, timer.endTime, endTime, 'missed', msg.author.toString());
@@ -355,33 +358,34 @@ export async function handleCommand(msg) {
     const parsed = parseBossTimeArgs(parts);
     if (parsed) {
       const boss = findBossFn(parsed.name, lang);
-      if (boss && !boss.weeklyRespawns) {
-        const result = applySet(boss, parsed.date, parsed.time, msg.author, lang);
-        if (typeof result === 'string') return msg.reply(result);
-        timers[boss.id] = { endTime: result.endTime, startedAt: result.killedAt };
-        resetBossCycleFn(boss.id);
-        await sendDefeatNotification(boss.id, result.killedAt, result.endTime, 'manualSet', msg.author.toString());
-        await saveTimersFn();
-        await addHistoryFn(boss.id, 'killed', result.killedAt);
-        speakDefeatedFn(boss.id, result.endTime);
-        return;
-      }
+      if (!boss) return msg.reply(`${tFn('bossNotFound', lang)} ${parsed.name}`);
+      if (boss.weeklyRespawns) return msg.reply(tFn('scheduleOnly', lang));
+      const result = applySet(boss, parsed.date, parsed.time, msg.author, lang);
+      if (typeof result === 'string') return msg.reply(result);
+      timers[boss.id] = { endTime: result.endTime, startedAt: result.killedAt };
+      resetBossCycleFn(boss.id);
+      await sendDefeatNotification(boss.id, result.killedAt, result.endTime, 'manualSet', msg.author.toString());
+      await saveTimersFn();
+      await addHistoryFn(boss.id, 'killed', result.killedAt);
+      speakDefeatedFn(boss.id, result.endTime);
+      return;
     }
 
     const last = parts[parts.length - 1].toLowerCase();
     if (last === 'x') {
-      const boss = findBossFn(parts.slice(0, -1).join(' '), lang);
-      if (boss && !boss.weeklyRespawns) {
-        const now = Date.now();
-        const endTime = now + boss.respawn * 1000;
-        timers[boss.id] = { endTime, startedAt: now };
-        resetBossCycleFn(boss.id);
-        await sendDefeatNotification(boss.id, now, endTime, 'defeated', msg.author.toString());
-        await saveTimersFn();
-        await addHistoryFn(boss.id, 'killed', now);
-        speakDefeatedFn(boss.id, endTime);
-        return;
-      }
+      const query = parts.slice(0, -1).join(' ');
+      const boss = findBossFn(query, lang);
+      if (!boss) return msg.reply(`${tFn('bossNotFound', lang)} ${query}`);
+      if (boss.weeklyRespawns) return msg.reply(tFn('scheduleOnly', lang));
+      const now = Date.now();
+      const endTime = now + boss.respawn * 1000;
+      timers[boss.id] = { endTime, startedAt: now };
+      resetBossCycleFn(boss.id);
+      await sendDefeatNotification(boss.id, now, endTime, 'defeated', msg.author.toString());
+      await saveTimersFn();
+      await addHistoryFn(boss.id, 'killed', now);
+      speakDefeatedFn(boss.id, endTime);
+      return;
     }
   }
 }

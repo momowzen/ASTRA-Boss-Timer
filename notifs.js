@@ -156,7 +156,7 @@ export async function startNotifLoop() {
           await db.collection('notifications').doc(notifId).set(data);
         }
 
-        if (remainingMs <= 0 && !sentSpawnedNotifs.has(cycleKey)) {
+        if (remainingMs <= 0 && remainingMs > -300000 && !sentSpawnedNotifs.has(cycleKey)) {
           if (timers[id] !== info) continue;
           sentSpawnedNotifs.add(cycleKey);
           speakSpawnedFn(bossNameFn(id, config.voiceLang));
