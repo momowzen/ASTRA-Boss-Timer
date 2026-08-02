@@ -52,16 +52,8 @@ const ANSI = {
   gray: (s) => `\u001b[0;90m${s}${ANSI_RESET}`,
   white: (s) => `\u001b[0;37m${s}${ANSI_RESET}`,
   green: (s) => `\u001b[1;32m${s}${ANSI_RESET}`,
-  yellow: (s) => `\u001b[1;33m${s}${ANSI_RESET}`,
-  blue: (s) => `\u001b[1;34m${s}${ANSI_RESET}`,
-  red: (s) => `\u001b[1;31m${s}${ANSI_RESET}`
+  yellow: (s) => `\u001b[1;33m${s}${ANSI_RESET}`
 };
-
-function remainingColor(ms) {
-  if (ms < 3600000) return ANSI.red;
-  if (ms < 10800000) return ANSI.blue;
-  return ANSI.green;
-}
 
 function buildTableBlocks(rows, title, lang) {
   const G = '   ', S = 12, R = 10, B = 20, total = S + G.length + R + G.length + B;
@@ -71,8 +63,7 @@ function buildTableBlocks(rows, title, lang) {
     const spawnStr = row.spawnMs ? formatSpawnTimeFn(row.spawnMs) : '---';
     const remMs = row.spawnMs ? row.spawnMs - Date.now() : null;
     const remStr = remMs !== null ? formatRemainingFn(remMs) : '---';
-    const remColor = remMs !== null ? remainingColor(remMs) : ANSI.white;
-    return ANSI.white(padL(spawnStr, S)) + G + remColor(padC(remStr, R)) + G + ANSI.yellow(padR(row.name, B));
+    return ANSI.white(padL(spawnStr, S)) + G + ANSI.green(padC(remStr, R)) + G + ANSI.yellow(padR(row.name, B));
   });
   const titleLines = [ANSI.cyan(title), ''];
   const headLines = [ANSI.cyan(header), ANSI.gray(sep)];
