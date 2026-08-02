@@ -44,6 +44,45 @@ const KILL = { en: 'Kill', ko: '처치', ja: '討伐' };
 const NEXT = { en: 'Next', ko: '다음', ja: '次回' };
 const BY = { en: 'By', ko: '기록', ja: '記録' };
 
+const ANSI_RESET = '\u001b[0m';
+const ANSI = {
+  cyan: (s) => `\u001b[1;36m${s}${ANSI_RESET}`,
+  gray: (s) => `\u001b[0;90m${s}${ANSI_RESET}`,
+  white: (s) => `\u001b[0;37m${s}${ANSI_RESET}`,
+  green: (s) => `\u001b[1;32m${s}${ANSI_RESET}`,
+  yellow: (s) => `\u001b[1;33m${s}${ANSI_RESET}`,
+  red: (s) => `\u001b[1;31m${s}${ANSI_RESET}`
+};
+
+function remainingColor(ms) {
+  if (ms < 3600000) return ANSI.red;
+  if (ms < 10800000) return ANSI.yellow;
+  return ANSI.green;
+}
+
+function buildTableBlocks(rows, title, lang) {
+  const G = '   ', S = 12, R = 10, B = 20, total = S + G.length + R + G.length + B;
+  const header = padL(tFn('colSpawn', lang), S) + G + padC(tFn('colRemaining', lang), R) + G + padR(tFn('colBoss', lang), B);
+  const sep = '-'.repeat(total);
+  const rowLines = rows.map(row => {
+    const spawnStr = row.spawnMs ? formatSpawnTimeFn(row.spawnMs) : '---';
+    const remMs = row.spawnMs ? row.spawnMs - Date.now() : null;
+    const remStr = remMs !== null ? formatRemainingFn(remMs) : '---';
+    const remColor = remMs !== null ? remainingColor(remMs) : ANSI.white;
+    return ANSI.white(padL(spawnStr, S)) + G + remColor(padC(remStr, R)) + G + ANSI.yellow(padR(row.name, B));
+  });
+  const titleLines = [ANSI.cyan(title), ''];
+  const headLines = [ANSI.cyan(header), ANSI.gray(sep)];
+  const fence = (lines) => ['```ansi', ...lines, '```'].join('\n');
+  const single = fence([...titleLines, ...headLines, ...rowLines]);
+  if (single.length <= 2000) return [single];
+  const blocks = [fence([...titleLines, ...headLines, ...rowLines.slice(0, 12)])];
+  for (let i = 12; i < rowLines.length; i += 12) {
+    blocks.push(fence([...headLines, ...rowLines.slice(i, i + 12)]));
+  }
+  return blocks;
+}
+
 async function sendDefeatNotification(bossId, killedAt, endTime, statusKey, user) {
   const nameEn = bossNameFn(bossId, 'en');
   const nameKo = bossNameFn(bossId, 'ko');
@@ -276,24 +315,17 @@ export async function handleCommand(msg) {
   if (cmd === 'bl') {
     const schedule = BOSSES_DATA.filter(b => b.weeklyRespawns && b.id !== 'Test');
     const interval = BOSSES_DATA.filter(b => b.respawn && b.id !== 'Test');
-
-    function buildList(list, title) {
-      const G = '   ', S = 12, R = 10, B = 20, total = S + G.length + R + G.length + B;
-      const header = padL(tFn('colSpawn', lang), S) + G + padC(tFn('colRemaining', lang), R) + G + padR(tFn('colBoss', lang), B);
-      const sep = '-'.repeat(total);
-      const lines = ['**' + title + '**', '```', header, sep];
-      for (const boss of list) {
-        const next = getNextSpawnFn(boss);
-        const remaining = next ? formatRemainingFn(next.getTime() - Date.now()) : '---';
-        const spawnStr = next ? formatSpawnTimeFn(next.getTime()) : '---';
-        lines.push(padL(spawnStr, S) + G + padC(remaining, R) + G + padR(bossNameFn(boss.id, lang), B));
-      }
-      lines.push('```');
-      return lines.join('\n');
+    const toRow = (boss) => {
+      const next = getNextSpawnFn(boss);
+      return { spawnMs: next ? next.getTime() : null, name: bossNameFn(boss.id, lang) };
+    };
+    for (const block of buildTableBlocks(schedule.map(toRow), tFn('fixSchedule', lang).toUpperCase(), lang)) {
+      await msg.reply(block);
     }
-
-    await msg.reply(buildList(schedule, tFn('fixSchedule', lang)));
-    return msg.reply(buildList(interval, tFn('fixInterval', lang)));
+    for (const block of buildTableBlocks(interval.map(toRow), tFn('fixInterval', lang).toUpperCase(), lang)) {
+      await msg.reply(block);
+    }
+    return;
   }
 
   if (cmd === 'ut') {
@@ -310,16 +342,9 @@ export async function handleCommand(msg) {
     }
     if (bosses.length === 0) return msg.reply(tFn('noActiveBosses', lang));
     bosses.sort((a, b) => a.time - b.time);
-    const G = '   ', S = 12, R = 10, B = 20, total = S + G.length + R + G.length + B;
-    const header = padL(tFn('colSpawn', lang), S) + G + padC(tFn('colRemaining', lang), R) + G + padR(tFn('colBoss', lang), B);
-    const sep = '-'.repeat(total);
-    const lines = ['**📅 ' + tFn('upcomingField', lang) + '**', '```', header, sep];
-    for (const { boss, time } of bosses) {
-      const remaining = formatRemainingFn(time - now);
-      lines.push(padL(formatSpawnTimeFn(time), S) + G + padC(remaining, R) + G + padR(bossNameFn(boss.id, lang), B));
-    }
-    lines.push('```');
-    return msg.reply(lines.join('\n'));
+    const blocks = buildTableBlocks(bosses.map(({ boss, time }) => ({ spawnMs: time, name: bossNameFn(boss.id, lang) })), tFn('upcomingField', lang).toUpperCase(), lang);
+    for (const block of blocks) await msg.reply(block);
+    return;
   }
 
   if (cmd === 'reset_tracker') {
