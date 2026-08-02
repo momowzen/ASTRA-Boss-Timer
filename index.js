@@ -4,7 +4,7 @@ import admin from 'firebase-admin';
 import { readFileSync } from 'fs';
 import { createServer } from 'http';
 import { BOSSES_DATA, TZ_OFFSET, LANG_LIST, t, bossName } from './translations.js';
-import { initVoice, connectVoice, disconnectVoice, speak, speakDefeated, speakFromNotifLoop, speakSpawned, checkWorldBossTts, cleanupWorldBoss, getVoiceConnection } from './voice.js';
+import { initVoice, connectVoice, disconnectVoice, speak, speakDefeated, speakSet, speakMissed, speakFromNotifLoop, speakSpawned, checkWorldBossTts, cleanupWorldBoss, getVoiceConnection } from './voice.js';
 import { initNotifs, sendNotif, sendAllNotifsFn, removeBossReactionsFn, resetBossCycleFn, startNotifLoop } from './notifs.js';
 import { initCommands, handleCommand, buildDetailedHelp, handleInteraction } from './commands.js';
 
@@ -50,6 +50,18 @@ const TTS_DEFEATED = {
   en: (n, d, t) => `${n} defeated. Next spawn ${d} at ${t}.`,
   ko: (n, d, t) => `${n} 처치 완료. 다음 출현은 ${d} ${t}입니다.`,
   ja: (n, d, t) => `${n}討伐完了。次回出現は${d} ${t}です。`
+};
+
+const TTS_SET = {
+  en: (n, d, t) => `${n} manually set. Next spawn ${d} at ${t}.`,
+  ko: (n, d, t) => `${n} 수동 설정 완료. 다음 출현은 ${d} ${t}입니다.`,
+  ja: (n, d, t) => `${n}手動設定完了。次回出現は${d} ${t}です。`
+};
+
+const TTS_MISSED = {
+  en: (n, d, t) => `${n} missed. Next spawn ${d} at ${t}.`,
+  ko: (n, d, t) => `${n} 놓침. 다음 출현은 ${d} ${t}입니다.`,
+  ja: (n, d, t) => `${n}見逃し。次回出現は${d} ${t}です。`
 };
 
 const WORLD_BOSS_TIMES = [
@@ -195,7 +207,7 @@ async function addHistory(bossId, type, timestamp) {
 // ─── Initialize modules ─────────────────────────
 initVoice({
   client, config, bossName, TZ, TZ_OFFSET,
-  TTS_SPAWN_IN, TTS_SPAWNED, TTS_DEFEATED,
+  TTS_SPAWN_IN, TTS_SPAWNED, TTS_DEFEATED, TTS_SET, TTS_MISSED,
   WORLD_BOSS_TIMES, TTS_WORLD_BOSS_IN, TTS_WORLD_BOSS_SPAWNED
 });
 
@@ -221,6 +233,8 @@ initCommands({
   sendAllNotifs, removeBossReactions, resetBossCycle,
   saveTimers, addHistory,
   speakDefeated: (bid, end) => speakDefeated(bid, end, BOSSES_DATA),
+  speakSet: (bid, end) => speakSet(bid, end, BOSSES_DATA),
+  speakMissed: (bid, end) => speakMissed(bid, end, BOSSES_DATA),
   notifMessageCache
 });
 

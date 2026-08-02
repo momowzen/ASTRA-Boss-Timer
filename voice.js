@@ -10,7 +10,7 @@ import { randomUUID } from 'crypto';
 const execFileAsync = promisify(execFile);
 
 let client, config, bossNameFn, TZ, TZ_OFFSET;
-let TTS_SPAWN_IN, TTS_SPAWNED, TTS_DEFEATED;
+let TTS_SPAWN_IN, TTS_SPAWNED, TTS_DEFEATED, TTS_SET, TTS_MISSED;
 let WORLD_BOSS_TIMES, TTS_WORLD_BOSS_IN, TTS_WORLD_BOSS_SPAWNED;
 
 const EDGE_VOICES = {
@@ -36,6 +36,8 @@ export function initVoice(deps) {
   TTS_SPAWN_IN = deps.TTS_SPAWN_IN;
   TTS_SPAWNED = deps.TTS_SPAWNED;
   TTS_DEFEATED = deps.TTS_DEFEATED;
+  TTS_SET = deps.TTS_SET;
+  TTS_MISSED = deps.TTS_MISSED;
   WORLD_BOSS_TIMES = deps.WORLD_BOSS_TIMES;
   TTS_WORLD_BOSS_IN = deps.TTS_WORLD_BOSS_IN;
   TTS_WORLD_BOSS_SPAWNED = deps.TTS_WORLD_BOSS_SPAWNED;
@@ -106,13 +108,34 @@ export async function speak(text) {
   } catch (e) { console.error('[TTS] error:', e.message); isSpeaking = false; }
 }
 
-export function speakDefeated(bossId, nextRespawnTime, BOSSES_DATA) {
-  const boss = BOSSES_DATA.find(b => b.id === bossId);
-  if (!boss) return;
-  const fn = TTS_DEFEATED[config.voiceLang] || TTS_DEFEATED.en;
+function buildSpawnStrings(nextRespawnTime) {
   const locale = { en: 'en-US', ko: 'ko-KR', ja: 'ja-JP' }[config.voiceLang] || 'en-US';
   const dateStr = new Date(nextRespawnTime).toLocaleString(locale, { month: 'short', day: 'numeric', timeZone: TZ });
   const timeStr = new Date(nextRespawnTime).toLocaleString(locale, { hour: '2-digit', minute: '2-digit', hour12: config.voiceLang !== 'ja', timeZone: TZ });
+  return [dateStr, timeStr];
+}
+
+export function speakDefeated(bossId, nextRespawnTime, BOSSES_DATA) {
+  const boss = BOSSES_DATA.find(b => b.id === bossId);
+  if (!boss) return;
+  const [dateStr, timeStr] = buildSpawnStrings(nextRespawnTime);
+  const fn = TTS_DEFEATED[config.voiceLang] || TTS_DEFEATED.en;
+  speak(fn(bossNameFn(bossId, config.voiceLang), dateStr, timeStr));
+}
+
+export function speakSet(bossId, nextRespawnTime, BOSSES_DATA) {
+  const boss = BOSSES_DATA.find(b => b.id === bossId);
+  if (!boss) return;
+  const [dateStr, timeStr] = buildSpawnStrings(nextRespawnTime);
+  const fn = TTS_SET[config.voiceLang] || TTS_SET.en;
+  speak(fn(bossNameFn(bossId, config.voiceLang), dateStr, timeStr));
+}
+
+export function speakMissed(bossId, nextRespawnTime, BOSSES_DATA) {
+  const boss = BOSSES_DATA.find(b => b.id === bossId);
+  if (!boss) return;
+  const [dateStr, timeStr] = buildSpawnStrings(nextRespawnTime);
+  const fn = TTS_MISSED[config.voiceLang] || TTS_MISSED.en;
   speak(fn(bossNameFn(bossId, config.voiceLang), dateStr, timeStr));
 }
 

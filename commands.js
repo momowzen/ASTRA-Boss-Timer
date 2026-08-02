@@ -2,7 +2,7 @@ import { ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder, Messa
 
 let config, timers, db, bossNameFn, tFn, formatJSTFn, BOSSES_DATA, TZ_OFFSET, LANG_LIST;
 let findBossFn, getNextSpawnFn, formatSpawnTimeFn, formatRemainingFn, visualLen, padL, padC, padR, detectLang, CMD_ALIAS, CMD_MAP;
-let sendAllNotifsFn, removeBossReactionsFn, resetBossCycleFn, saveTimersFn, addHistoryFn, speakDefeatedFn;
+let sendAllNotifsFn, removeBossReactionsFn, resetBossCycleFn, saveTimersFn, addHistoryFn, speakDefeatedFn, speakSetFn, speakMissedFn;
 let notifMessageCache;
 
 export function initCommands(deps) {
@@ -32,6 +32,8 @@ export function initCommands(deps) {
   saveTimersFn = deps.saveTimers;
   addHistoryFn = deps.addHistory;
   speakDefeatedFn = deps.speakDefeated;
+  speakSetFn = deps.speakSet;
+  speakMissedFn = deps.speakMissed;
   notifMessageCache = deps.notifMessageCache;
 }
 
@@ -274,7 +276,7 @@ export async function handleCommand(msg) {
     await sendDefeatNotification(boss.id, result.killedAt, result.endTime, 'manualSet', msg.author.toString());
     await saveTimersFn();
     await addHistoryFn(boss.id, 'killed', result.killedAt);
-    speakDefeatedFn(boss.id, result.endTime);
+    speakSetFn(boss.id, result.endTime);
     return;
   }
 
@@ -292,6 +294,7 @@ export async function handleCommand(msg) {
     await sendDefeatNotification(boss.id, timer.endTime, endTime, 'missed', msg.author.toString());
     await saveTimersFn();
     await addHistoryFn(boss.id, 'missed', now);
+    speakMissedFn(boss.id, endTime);
     return;
   }
 
