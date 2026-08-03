@@ -387,7 +387,7 @@ export async function handleCommand(msg) {
       await sendDefeatNotification(boss.id, result.killedAt, result.endTime, 'manualSet', msg.author.toString());
       await saveTimersFn();
       await addHistoryFn(boss.id, 'killed', result.killedAt);
-      speakDefeatedFn(boss.id, result.endTime);
+      speakSetFn(boss.id, result.endTime);
       return;
     }
 
