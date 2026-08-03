@@ -392,7 +392,7 @@ export async function handleCommand(msg) {
     }
 
     const last = parts[parts.length - 1].toLowerCase();
-    if (last === 'cut') {
+    if (last === 'cut' || last === '컷' || last === 'カット') {
       const query = parts.slice(0, -1).join(' ');
       const boss = findBossFn(query, lang);
       if (!boss) return msg.reply(`${tFn('bossNotFound', lang)} ${query}`);
