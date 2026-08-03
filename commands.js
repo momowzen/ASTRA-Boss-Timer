@@ -547,6 +547,7 @@ export async function handleInteraction(interaction) {
     await sendDefeatNotification(bossId, killedAt, endTime, 'missed', interaction.user.toString());
     await saveTimersFn();
     await addHistoryFn(boss.id, 'missed', now);
+    speakMissedFn(bossId, endTime);
     return;
   }
 }
