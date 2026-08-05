@@ -65,12 +65,11 @@ function buildTableBlocks(rows, title, lang) {
     const remStr = remMs !== null ? formatRemainingFn(remMs) : '---';
     return ANSI.white(padL(spawnStr, S)) + G + ANSI.green(padC(remStr, R)) + G + ANSI.yellow(padR(row.name, B));
   });
-  const titleLines = [ANSI.cyan(title), ''];
   const headLines = [ANSI.cyan(header), ANSI.gray(sep)];
   const fence = (lines) => ['```ansi', ...lines, '```'].join('\n');
-  const single = fence([...titleLines, ...headLines, ...rowLines]);
+  const single = `${title}\n${fence([...headLines, ...rowLines])}`;
   if (single.length <= 2000) return [single];
-  const blocks = [fence([...titleLines, ...headLines, ...rowLines.slice(0, 12)])];
+  const blocks = [`${title}\n${fence([...headLines, ...rowLines.slice(0, 12)])}`];
   for (let i = 12; i < rowLines.length; i += 12) {
     blocks.push(fence([...headLines, ...rowLines.slice(i, i + 12)]));
   }
