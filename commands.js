@@ -279,10 +279,11 @@ export async function handleCommand(msg) {
     const timer = timers[boss.id];
     if (!timer || !timer.endTime) return msg.reply(`${tFn('noTimer', lang)} ${bossNameFn(boss.id, lang)}`);
     const now = Date.now();
-    const endTime = Math.max(timer.endTime, now) + 5 * 60 * 1000;
-    timers[boss.id] = { endTime, startedAt: timer.endTime };
+    const killedAt = timer.endTime + 5 * 60 * 1000;
+    const endTime = killedAt + boss.respawn * 1000;
+    timers[boss.id] = { endTime, startedAt: killedAt };
     resetBossCycleFn(boss.id);
-    await sendDefeatNotification(boss.id, timer.endTime, endTime, 'missed', msg.author.toString());
+    await sendDefeatNotification(boss.id, killedAt, endTime, 'missed', msg.author.toString());
     await saveTimersFn();
     await addHistoryFn(boss.id, 'missed', now);
     speakMissedFn(boss.id, endTime);
@@ -538,8 +539,8 @@ export async function handleInteraction(interaction) {
   if (action === 'missed') {
     interaction.deferUpdate().catch(() => {});
     const timer = timers[boss.id];
-    const killedAt = timer?.endTime || now;
-    const endTime = killedAt + 5 * 60 * 1000;
+    const killedAt = timer?.endTime + 5 * 60 * 1000 || now;
+    const endTime = killedAt + boss.respawn * 1000;
     if (timers[boss.id] && timers[boss.id].endTime && Math.abs(timers[boss.id].endTime - endTime) < 2000) return;
     timers[boss.id] = { endTime, startedAt: killedAt };
     resetBossCycleFn(boss.id);
