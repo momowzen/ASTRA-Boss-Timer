@@ -359,8 +359,15 @@ client.once('clientReady', async () => {
       const cutoff = Date.now() - 30 * 60 * 1000;
       const oldDocs = await db.collection('notifications').where('timestamp', '<', cutoff).limit(100).get();
       const batch = db.batch();
-      for (const doc of oldDocs.docs) batch.delete(doc.ref);
-      if (oldDocs.size > 0) { await batch.commit(); console.log(`Pruned ${oldDocs.size} old notification docs`); }
+      let count = 0;
+      for (const doc of oldDocs.docs) {
+        const data = doc.data();
+        const timer = timers[data.bossId];
+        if (data.type === 'spawning' && timer && timer.endTime) continue;
+        batch.delete(doc.ref);
+        count++;
+      }
+      if (count > 0) { await batch.commit(); console.log(`Pruned ${count} old notification docs`); }
     } catch (e) { console.error('Notification prune error:', e.message); }
   }, 3600000);
 

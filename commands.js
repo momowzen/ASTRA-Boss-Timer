@@ -86,7 +86,6 @@ async function sendDefeatNotification(bossId, killedAt, endTime, statusKey, user
   const nextEn = formatSpawnTimeFn(endTime);
   const nextKo = formatSpawnTimeFn(endTime);
   const nextJa = formatSpawnTimeFn(endTime);
-  removeBossReactionsFn(bossId).catch(() => {});
   await sendAllNotifsFn(
     `**[**\`${TAG[statusKey].en}\`**] ${nameEn}**\n${KILL.en}: ${killEn} | ${NEXT.en}: ${nextEn}\n${BY.en}: ${user}`,
     `**[**\`${TAG[statusKey].ko}\`**] ${nameKo}**\n${KILL.ko}: ${killKo} | ${NEXT.ko}: ${nextKo}\n${BY.ko}: ${user}`,
@@ -246,6 +245,7 @@ export async function handleCommand(msg) {
     const now = Date.now();
     const endTime = now + boss.respawn * 1000;
     timers[boss.id] = { endTime, startedAt: now };
+    await removeBossReactionsFn(boss.id);
     resetBossCycleFn(boss.id);
     await sendDefeatNotification(boss.id, now, endTime, 'defeated', msg.author.toString());
     await saveTimersFn();
@@ -263,6 +263,7 @@ export async function handleCommand(msg) {
     const result = applySet(boss, parsed.date, parsed.time, msg.author, lang);
     if (typeof result === 'string') return msg.reply(result);
     timers[boss.id] = { endTime: result.endTime, startedAt: result.killedAt };
+    await removeBossReactionsFn(boss.id);
     resetBossCycleFn(boss.id);
     await sendDefeatNotification(boss.id, result.killedAt, result.endTime, 'manualSet', msg.author.toString());
     await saveTimersFn();
@@ -282,6 +283,7 @@ export async function handleCommand(msg) {
     const killedAt = timer.endTime + 5 * 60 * 1000;
     const endTime = killedAt + boss.respawn * 1000;
     timers[boss.id] = { endTime, startedAt: killedAt };
+    await removeBossReactionsFn(boss.id);
     resetBossCycleFn(boss.id);
     await sendDefeatNotification(boss.id, killedAt, endTime, 'missed', msg.author.toString());
     await saveTimersFn();
@@ -383,6 +385,7 @@ export async function handleCommand(msg) {
       const result = applySet(boss, parsed.date, parsed.time, msg.author, lang);
       if (typeof result === 'string') return msg.reply(result);
       timers[boss.id] = { endTime: result.endTime, startedAt: result.killedAt };
+      await removeBossReactionsFn(boss.id);
       resetBossCycleFn(boss.id);
       await sendDefeatNotification(boss.id, result.killedAt, result.endTime, 'manualSet', msg.author.toString());
       await saveTimersFn();
@@ -400,6 +403,7 @@ export async function handleCommand(msg) {
       const now = Date.now();
       const endTime = now + boss.respawn * 1000;
       timers[boss.id] = { endTime, startedAt: now };
+      await removeBossReactionsFn(boss.id);
       resetBossCycleFn(boss.id);
       await sendDefeatNotification(boss.id, now, endTime, 'defeated', msg.author.toString());
       await saveTimersFn();
@@ -528,6 +532,7 @@ export async function handleInteraction(interaction) {
     const endTime = now + boss.respawn * 1000;
     if (timers[boss.id] && Math.abs(timers[boss.id].endTime - endTime) < 2000) return;
     timers[boss.id] = { endTime, startedAt: now };
+    await removeBossReactionsFn(boss.id);
     resetBossCycleFn(boss.id);
     await sendDefeatNotification(bossId, now, endTime, 'defeated', interaction.user.toString());
     await saveTimersFn();
@@ -543,6 +548,7 @@ export async function handleInteraction(interaction) {
     const endTime = killedAt + boss.respawn * 1000;
     if (timers[boss.id] && timers[boss.id].endTime && Math.abs(timers[boss.id].endTime - endTime) < 2000) return;
     timers[boss.id] = { endTime, startedAt: killedAt };
+    await removeBossReactionsFn(boss.id);
     resetBossCycleFn(boss.id);
     await sendDefeatNotification(bossId, killedAt, endTime, 'missed', interaction.user.toString());
     await saveTimersFn();
