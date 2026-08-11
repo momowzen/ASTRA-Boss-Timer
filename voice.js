@@ -65,7 +65,7 @@ export async function connectVoice() {
       if (speakQueue.length) {
         speak(speakQueue.shift());
       } else {
-        idleTimer = setTimeout(() => disconnectVoice(), 600000);
+        idleTimer = setTimeout(() => disconnectVoice(), 300000);
       }
     });
     voiceConnection = joinVoiceChannel({
