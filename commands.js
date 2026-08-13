@@ -94,6 +94,10 @@ async function sendDefeatNotification(bossId, killedAt, endTime, statusKey, user
   );
 }
 
+function getUserName(author, member) {
+  return member?.displayName || author?.displayName || author?.username || 'Unknown';
+}
+
 function parseBossTimeArgs(args) {
   if (!args.length) return null;
   const last = args[args.length - 1];
@@ -283,7 +287,7 @@ export async function handleCommand(msg) {
     timers[boss.id] = { endTime, startedAt: now };
     await removeBossReactionsFn(boss.id);
     resetBossCycleFn(boss.id);
-    await sendDefeatNotification(boss.id, now, endTime, 'defeated', msg.author.toString());
+    await sendDefeatNotification(boss.id, now, endTime, 'defeated', getUserName(msg.author, msg.member));
     await saveTimersFn();
     await addHistoryFn(boss.id, 'killed', now);
     speakDefeatedFn(boss.id, endTime);
@@ -301,7 +305,7 @@ export async function handleCommand(msg) {
     timers[boss.id] = { endTime: result.endTime, startedAt: result.killedAt };
     await removeBossReactionsFn(boss.id);
     resetBossCycleFn(boss.id);
-    await sendDefeatNotification(boss.id, result.killedAt, result.endTime, 'manualSet', msg.author.toString());
+    await sendDefeatNotification(boss.id, result.killedAt, result.endTime, 'manualSet', getUserName(msg.author, msg.member));
     await saveTimersFn();
     await addHistoryFn(boss.id, 'killed', result.killedAt);
     speakSetFn(boss.id, result.endTime);
@@ -321,7 +325,7 @@ export async function handleCommand(msg) {
     timers[boss.id] = { endTime, startedAt: killedAt };
     await removeBossReactionsFn(boss.id);
     resetBossCycleFn(boss.id);
-    await sendDefeatNotification(boss.id, killedAt, endTime, 'missed', msg.author.toString());
+    await sendDefeatNotification(boss.id, killedAt, endTime, 'missed', getUserName(msg.author, msg.member));
     await saveTimersFn();
     await addHistoryFn(boss.id, 'missed', now);
     speakMissedFn(boss.id, endTime);
@@ -336,7 +340,7 @@ export async function handleCommand(msg) {
     removeBossReactionsFn(boss.id).catch(() => {});
     delete timers[boss.id];
     await saveTimersFn();
-    const user = msg.author.toString();
+    const user = getUserName(msg.author, msg.member);
     await sendAllNotifsFn(
       `**[**\`CLEARED\`**] ${bossNameFn(boss.id, 'en')}**\n${BY.en}: ${user}`,
       `**[**\`삭제\`**] ${bossNameFn(boss.id, 'ko')}**\n${BY.ko}: ${user}`,
@@ -389,7 +393,7 @@ export async function handleCommand(msg) {
       if (boss.respawn) { delete timers[boss.id]; await removeBossReactionsFn(boss.id).catch(() => {}); }
     }
     await saveTimersFn();
-    const user = msg.author.toString();
+    const user = getUserName(msg.author, msg.member);
     await sendAllNotifsFn(
       `**[**\`RESET\`**] Boss Tracker**\nAll interval timers reset.\n${BY.en}: ${user}`,
       `**[**\`초기화\`**] 보스 타이머**\n모든 고정 주기 타이머가 초기화되었습니다.\n${BY.ko}: ${user}`,
@@ -423,7 +427,7 @@ export async function handleCommand(msg) {
       timers[boss.id] = { endTime: result.endTime, startedAt: result.killedAt };
       await removeBossReactionsFn(boss.id);
       resetBossCycleFn(boss.id);
-      await sendDefeatNotification(boss.id, result.killedAt, result.endTime, 'manualSet', msg.author.toString());
+      await sendDefeatNotification(boss.id, result.killedAt, result.endTime, 'manualSet', getUserName(msg.author, msg.member));
       await saveTimersFn();
       await addHistoryFn(boss.id, 'killed', result.killedAt);
       speakSetFn(boss.id, result.endTime);
@@ -441,7 +445,7 @@ export async function handleCommand(msg) {
       timers[boss.id] = { endTime, startedAt: now };
       await removeBossReactionsFn(boss.id);
       resetBossCycleFn(boss.id);
-      await sendDefeatNotification(boss.id, now, endTime, 'defeated', msg.author.toString());
+      await sendDefeatNotification(boss.id, now, endTime, 'defeated', getUserName(msg.author, msg.member));
       await saveTimersFn();
       await addHistoryFn(boss.id, 'killed', now);
       speakDefeatedFn(boss.id, endTime);
@@ -570,7 +574,7 @@ export async function handleInteraction(interaction) {
     timers[boss.id] = { endTime, startedAt: now };
     await removeBossReactionsFn(boss.id);
     resetBossCycleFn(boss.id);
-    await sendDefeatNotification(bossId, now, endTime, 'defeated', interaction.user.toString());
+    await sendDefeatNotification(bossId, now, endTime, 'defeated', getUserName(interaction.user, interaction.member));
     await saveTimersFn();
     await addHistoryFn(boss.id, 'killed', now);
     speakDefeatedFn(bossId, endTime);
@@ -586,7 +590,7 @@ export async function handleInteraction(interaction) {
     timers[boss.id] = { endTime, startedAt: killedAt };
     await removeBossReactionsFn(boss.id);
     resetBossCycleFn(boss.id);
-    await sendDefeatNotification(bossId, killedAt, endTime, 'missed', interaction.user.toString());
+    await sendDefeatNotification(bossId, killedAt, endTime, 'missed', getUserName(interaction.user, interaction.member));
     await saveTimersFn();
     await addHistoryFn(boss.id, 'missed', now);
     speakMissedFn(bossId, endTime);
