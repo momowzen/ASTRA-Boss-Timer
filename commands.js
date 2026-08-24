@@ -49,14 +49,19 @@ const BY = { en: 'By', ko: '기록', ja: '記録' };
 function buildEmbeds(rows, title, lang, color) {
   if (!rows.length) return [];
   const maxNameLen = Math.max(...rows.map(r => visualLen(r.name)));
+  const col1Header = tFn('colSpawn', lang);
+  const col2Header = tFn('colRemaining', lang);
+  const col3Header = tFn('colBoss', lang);
+  const W1 = Math.max(visualLen(col1Header), 11) + 4;
+  const W2 = Math.max(visualLen(col2Header), 8) + 3;
   const pad = (s, w) => s + ' '.repeat(Math.max(0, w - visualLen(s)));
-  const header = `${tFn('colSpawn', lang)}  ${tFn('colRemaining', lang)}  ${pad(tFn('colBoss', lang), maxNameLen)}`;
+  const header = `${pad(col1Header, W1)}${pad(col2Header, W2)}${pad(col3Header, maxNameLen)}`;
   const sep = '-'.repeat(header.length);
   const lines = [header, sep];
   for (const row of rows) {
     const remStr = row.spawnMs ? formatRemainingFn(row.spawnMs - Date.now()) : '---';
     const spawnStr = row.spawnMs ? formatSpawnTimeFn(row.spawnMs) : '---';
-    lines.push(`${spawnStr}  ${remStr.padStart(10)}  ${pad(row.name, maxNameLen)}`);
+    lines.push(`${pad(spawnStr, W1)}${pad(remStr, W2)}${pad(row.name, maxNameLen)}`);
   }
   const description = '```\n' + lines.join('\n') + '\n```';
   return [new EmbedBuilder().setTitle(title).setDescription(description).setColor(color)];
