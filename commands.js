@@ -1,4 +1,4 @@
-import { ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder, MessageFlags } from 'discord.js';
+import { ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder, MessageFlags, EmbedBuilder } from 'discord.js';
 
 let config, timers, db, bossNameFn, tFn, formatJSTFn, BOSSES_DATA, TZ_OFFSET, LANG_LIST;
 let findBossFn, getNextSpawnFn, formatSpawnTimeFn, formatRemainingFn, visualLen, padL, padC, padR, detectLang, CMD_ALIAS, CMD_MAP;
@@ -46,34 +46,20 @@ const KILL = { en: 'Kill', ko: '처치', ja: '討伐' };
 const NEXT = { en: 'Next', ko: '다음', ja: '次回' };
 const BY = { en: 'By', ko: '기록', ja: '記録' };
 
-const ANSI_RESET = '\u001b[0m';
-const ANSI = {
-  cyan: (s) => `\u001b[1;36m${s}${ANSI_RESET}`,
-  gray: (s) => `\u001b[0;90m${s}${ANSI_RESET}`,
-  white: (s) => `\u001b[0;37m${s}${ANSI_RESET}`,
-  green: (s) => `\u001b[1;32m${s}${ANSI_RESET}`,
-  yellow: (s) => `\u001b[1;33m${s}${ANSI_RESET}`
-};
-
-function buildTableBlocks(rows, title, lang) {
-  const G = '   ', S = 12, R = 10, B = 20, total = S + G.length + R + G.length + B;
-  const header = padL(tFn('colSpawn', lang), S) + G + padC(tFn('colRemaining', lang), R) + G + padR(tFn('colBoss', lang), B);
-  const sep = '-'.repeat(total);
-  const rowLines = rows.map(row => {
+function buildEmbeds(rows, title, lang, color) {
+  if (!rows.length) return [];
+  const maxNameLen = Math.max(...rows.map(r => visualLen(r.name)));
+  const pad = (s, w) => s + ' '.repeat(Math.max(0, w - visualLen(s)));
+  const header = `${pad(tFn('colBoss', lang), maxNameLen)}  Remaining  Next Spawn`;
+  const sep = '-'.repeat(header.length);
+  const lines = [header, sep];
+  for (const row of rows) {
+    const remStr = row.spawnMs ? formatRemainingFn(row.spawnMs - Date.now()) : '---';
     const spawnStr = row.spawnMs ? formatSpawnTimeFn(row.spawnMs) : '---';
-    const remMs = row.spawnMs ? row.spawnMs - Date.now() : null;
-    const remStr = remMs !== null ? formatRemainingFn(remMs) : '---';
-    return ANSI.white(padL(spawnStr, S)) + G + ANSI.green(padC(remStr, R)) + G + ANSI.yellow(padR(row.name, B));
-  });
-  const headLines = [ANSI.cyan(header), ANSI.gray(sep)];
-  const fence = (lines) => ['```ansi', ...lines, '```'].join('\n');
-  const single = `${title}\n${fence([...headLines, ...rowLines])}`;
-  if (single.length <= 2000) return [single];
-  const blocks = [`${title}\n${fence([...headLines, ...rowLines.slice(0, 12)])}`];
-  for (let i = 12; i < rowLines.length; i += 12) {
-    blocks.push(fence([...headLines, ...rowLines.slice(i, i + 12)]));
+    lines.push(`${pad(row.name, maxNameLen)}  ${remStr.padStart(10)}  ${spawnStr}`);
   }
-  return blocks;
+  const description = '```\n' + lines.join('\n') + '\n```';
+  return [new EmbedBuilder().setTitle(title).setDescription(description).setColor(color)];
 }
 
 async function sendDefeatNotification(bossId, killedAt, endTime, statusKey, user) {
@@ -356,11 +342,11 @@ export async function handleCommand(msg) {
       const next = getNextSpawnFn(boss);
       return { spawnMs: next ? next.getTime() : null, name: bossNameFn(boss.id, lang) };
     };
-    for (const block of buildTableBlocks(schedule.map(toRow), tFn('fixSchedule', lang).toUpperCase(), lang)) {
-      await msg.reply(block);
+    for (const embed of buildEmbeds(schedule.map(toRow), tFn('fixSchedule', lang).toUpperCase(), lang, 0x9B59B6)) {
+      await msg.reply({ embeds: [embed] });
     }
-    for (const block of buildTableBlocks(interval.map(toRow), tFn('fixInterval', lang).toUpperCase(), lang)) {
-      await msg.reply(block);
+    for (const embed of buildEmbeds(interval.map(toRow), tFn('fixInterval', lang).toUpperCase(), lang, 0x3498DB)) {
+      await msg.reply({ embeds: [embed] });
     }
     return;
   }
@@ -379,8 +365,8 @@ export async function handleCommand(msg) {
     }
     if (bosses.length === 0) return msg.reply(tFn('noActiveBosses', lang));
     bosses.sort((a, b) => a.time - b.time);
-    const blocks = buildTableBlocks(bosses.map(({ boss, time }) => ({ spawnMs: time, name: bossNameFn(boss.id, lang) })), tFn('upcomingField', lang).toUpperCase(), lang);
-    for (const block of blocks) await msg.reply(block);
+    const embeds = buildEmbeds(bosses.map(({ boss, time }) => ({ spawnMs: time, name: bossNameFn(boss.id, lang) })), tFn('upcomingField', lang).toUpperCase(), lang, 0x2ECC71);
+    for (const embed of embeds) await msg.reply({ embeds: [embed] });
     return;
   }
 

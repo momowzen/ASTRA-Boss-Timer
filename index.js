@@ -143,7 +143,7 @@ function formatJST(ms, lang = 'en') {
 
 function formatSpawnTime(ms) {
   const d = new Date(ms + TZ_OFFSET);
-  return `${d.getUTCMonth() + 1}/${d.getUTCDate()} ${String(d.getUTCHours()).padStart(2, '0')}:${String(d.getUTCMinutes()).padStart(2, '0')}`;
+  return `${d.getUTCMonth() + 1}/${String(d.getUTCDate()).padStart(2, '0')} ${String(d.getUTCHours()).padStart(2, '0')}:${String(d.getUTCMinutes()).padStart(2, '0')}`;
 }
 
 function formatRemaining(ms) {
