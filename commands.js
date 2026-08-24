@@ -50,13 +50,13 @@ function buildEmbeds(rows, title, lang, color) {
   if (!rows.length) return [];
   const maxNameLen = Math.max(...rows.map(r => visualLen(r.name)));
   const pad = (s, w) => s + ' '.repeat(Math.max(0, w - visualLen(s)));
-  const header = `${pad(tFn('colBoss', lang), maxNameLen)}  Remaining  Next Spawn`;
+  const header = `Next Spawn  Remaining  ${pad(tFn('colBoss', lang), maxNameLen)}`;
   const sep = '-'.repeat(header.length);
   const lines = [header, sep];
   for (const row of rows) {
     const remStr = row.spawnMs ? formatRemainingFn(row.spawnMs - Date.now()) : '---';
     const spawnStr = row.spawnMs ? formatSpawnTimeFn(row.spawnMs) : '---';
-    lines.push(`${pad(row.name, maxNameLen)}  ${remStr.padStart(10)}  ${spawnStr}`);
+    lines.push(`${spawnStr}  ${remStr.padStart(10)}  ${pad(row.name, maxNameLen)}`);
   }
   const description = '```\n' + lines.join('\n') + '\n```';
   return [new EmbedBuilder().setTitle(title).setDescription(description).setColor(color)];
