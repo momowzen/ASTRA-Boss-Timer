@@ -52,8 +52,8 @@ function buildEmbeds(rows, title, lang, color) {
   const col1Header = tFn('colSpawn', lang);
   const col2Header = tFn('colRemaining', lang);
   const col3Header = tFn('colBoss', lang);
-  const W1 = Math.max(visualLen(col1Header), 11) + 4;
-  const W2 = Math.max(visualLen(col2Header), 8) + 3;
+  const widths = { en: { w1: 15, w2: 12 }, ko: { w1: 15, w2: 14 }, ja: { w1: 16, w2: 13 } };
+  const { w1: W1, w2: W2 } = widths[lang] || widths.en;
   const pad = (s, w) => s + ' '.repeat(Math.max(0, w - visualLen(s)));
   const header = `${pad(col1Header, W1)}${pad(col2Header, W2)}${pad(col3Header, maxNameLen)}`;
   const sep = '-'.repeat(visualLen(header));
