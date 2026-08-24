@@ -50,7 +50,7 @@ function buildEmbeds(rows, title, lang, color) {
   if (!rows.length) return [];
   const maxNameLen = Math.max(...rows.map(r => visualLen(r.name)));
   const pad = (s, w) => s + ' '.repeat(Math.max(0, w - visualLen(s)));
-  const header = `Next Spawn  Remaining  ${pad(tFn('colBoss', lang), maxNameLen)}`;
+  const header = `${tFn('colSpawn', lang)}  ${tFn('colRemaining', lang)}  ${pad(tFn('colBoss', lang), maxNameLen)}`;
   const sep = '-'.repeat(header.length);
   const lines = [header, sep];
   for (const row of rows) {
