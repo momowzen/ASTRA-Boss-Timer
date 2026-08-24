@@ -48,23 +48,18 @@ const BY = { en: 'By', ko: '기록', ja: '記録' };
 
 function buildEmbeds(rows, title, lang, color) {
   if (!rows.length) return [];
-  const maxNameLen = Math.max(...rows.map(r => visualLen(r.name)));
-  const col1Header = tFn('colSpawn', lang);
-  const col2Header = tFn('colRemaining', lang);
-  const col3Header = tFn('colBoss', lang);
-  const widths = { en: { w1: 15, w2: 12 }, ko: { w1: 15, w2: 14 }, ja: { w1: 16, w2: 13 } };
-  const { w1: W1, w2: W2 } = widths[lang] || widths.en;
-  const pad = (s, w) => s + ' '.repeat(Math.max(0, w - visualLen(s)));
-  const header = `${pad(col1Header, W1)}${pad(col2Header, W2)}${pad(col3Header, maxNameLen)}`;
-  const sep = '-'.repeat(visualLen(header));
-  const lines = [header, sep];
-  for (const row of rows) {
-    const remStr = row.spawnMs ? formatRemainingFn(row.spawnMs - Date.now()) : '---';
-    const spawnStr = row.spawnMs ? formatSpawnTimeFn(row.spawnMs) : '---';
-    lines.push(`${pad(spawnStr, W1)}${pad(remStr, W2)}${pad(row.name, maxNameLen)}`);
-  }
-  const description = '```\n' + lines.join('\n') + '\n```';
-  return [new EmbedBuilder().setTitle(title).setDescription(description).setColor(color)];
+  const bossValues = rows.map(r => r.name).join('\n');
+  const remainingValues = rows.map(r => r.spawnMs ? formatRemainingFn(r.spawnMs - Date.now()) : '---').join('\n');
+  const spawnValues = rows.map(r => r.spawnMs ? formatSpawnTimeFn(r.spawnMs) : '---').join('\n');
+  const embed = new EmbedBuilder()
+    .setTitle(title)
+    .setColor(color)
+    .addFields(
+      { name: tFn('colBoss', lang), value: bossValues, inline: true },
+      { name: tFn('colRemaining', lang), value: remainingValues, inline: true },
+      { name: tFn('colSpawn', lang), value: spawnValues, inline: true }
+    );
+  return [embed];
 }
 
 async function sendDefeatNotification(bossId, killedAt, endTime, statusKey, user) {
