@@ -56,7 +56,7 @@ function buildEmbeds(rows, title, lang, color) {
   const W2 = Math.max(visualLen(col2Header), 8) + 3;
   const pad = (s, w) => s + ' '.repeat(Math.max(0, w - visualLen(s)));
   const header = `${pad(col1Header, W1)}${pad(col2Header, W2)}${pad(col3Header, maxNameLen)}`;
-  const sep = '-'.repeat(header.length);
+  const sep = '-'.repeat(visualLen(header));
   const lines = [header, sep];
   for (const row of rows) {
     const remStr = row.spawnMs ? formatRemainingFn(row.spawnMs - Date.now()) : '---';
