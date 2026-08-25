@@ -48,15 +48,9 @@ const BY = { en: 'By', ko: '기록', ja: '記録' };
 
 function buildEmbeds(rows, title, lang, color) {
   if (!rows.length) return [];
-  const col1Header = tFn('colSpawn', lang);
-  const col2Header = tFn('colBoss', lang);
-  const maxNameLen = Math.max(...rows.map(r => visualLen(r.name)), visualLen(col2Header));
-  const w1Map = { en: 12, ko: 14, ja: 14 };
-  const W1 = w1Map[lang] || 12;
+  const W1 = 12;
   const pad = (s, w) => s + ' '.repeat(Math.max(0, w - visualLen(s)));
-  const header = `${pad(col1Header, W1)}${col2Header}`;
-  const sep = '-'.repeat(visualLen(header));
-  const lines = [header, sep];
+  const lines = [];
   for (const row of rows) {
     const spawnStr = row.spawnMs ? formatSpawnTimeFn(row.spawnMs) : '---';
     lines.push(`${pad(spawnStr, W1)}${row.name}`);
