@@ -51,7 +51,8 @@ function buildEmbeds(rows, title, lang, color) {
   const col1Header = tFn('colSpawn', lang);
   const col2Header = tFn('colBoss', lang);
   const maxNameLen = Math.max(...rows.map(r => visualLen(r.name)), visualLen(col2Header));
-  const W1 = Math.max(visualLen(col1Header), 11) + 1;
+  const w1Map = { en: 12, ko: 14, ja: 14 };
+  const W1 = w1Map[lang] || 12;
   const pad = (s, w) => s + ' '.repeat(Math.max(0, w - visualLen(s)));
   const header = `${pad(col1Header, W1)}${col2Header}`;
   const sep = '-'.repeat(visualLen(header));
