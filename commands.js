@@ -401,10 +401,12 @@ export async function handleCommand(msg) {
     const schedule = BOSSES_DATA.filter(b => b.weeklyRespawns && b.id !== 'Test');
     const interval = BOSSES_DATA.filter(b => b.respawn && b.id !== 'Test');
     const gn = config.guildNames || {};
+    const rotation = config.rotation || {};
     const toRow = (boss) => {
       const next = getNextSpawnFn(boss);
       const timer = timers[boss.id];
-      return { spawnMs: next ? next.getTime() : null, name: bossNameFn(boss.id, lang), guild: timer?.guild ?? null };
+      const guild = timer?.guild ?? rotation[boss.id] ?? null;
+      return { spawnMs: next ? next.getTime() : null, name: bossNameFn(boss.id, lang), guild };
     };
     for (const embed of buildEmbeds(schedule.map(toRow), tFn('fixSchedule', lang).toUpperCase(), lang, 0x9B59B6, gn)) {
       await msg.reply({ embeds: [embed] });
@@ -430,7 +432,8 @@ export async function handleCommand(msg) {
     if (bosses.length === 0) return msg.reply(tFn('noActiveBosses', lang));
     bosses.sort((a, b) => a.time - b.time);
     const gn = config.guildNames || {};
-    const embeds = buildEmbeds(bosses.map(({ boss, time }) => ({ spawnMs: time, name: bossNameFn(boss.id, lang), guild: timers[boss.id]?.guild ?? null })), tFn('upcomingField', lang).toUpperCase(), lang, 0x2ECC71, gn);
+    const rotation = config.rotation || {};
+    const embeds = buildEmbeds(bosses.map(({ boss, time }) => ({ spawnMs: time, name: bossNameFn(boss.id, lang), guild: timers[boss.id]?.guild ?? rotation[boss.id] ?? null })), tFn('upcomingField', lang).toUpperCase(), lang, 0x2ECC71, gn);
     for (const embed of embeds) await msg.reply({ embeds: [embed] });
     return;
   }
