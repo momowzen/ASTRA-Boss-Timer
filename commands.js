@@ -162,6 +162,14 @@ const HELP_EN = [
   '`/import` → Import boss timers.',
   '`/export` → Export boss timers.',
   '',
+  '**Guild Rotation**',
+  '`rotation setup guild1=Boss1,Boss2 guild2=Boss3` → Setup guild rotation.',
+  '`rotation` → Show current rotation.',
+  '`rotation clear` → Clear rotation.',
+  '`guildnames 1=Name1 2=Name2` → Set guild display names.',
+  '`guildnames` → Show guild names.',
+  '`guildnames clear` → Clear guild names.',
+  '',
   '**Notifications**',
   '`/setup` → Configure notification channels.',
   '`/setup ping_here:True` → Enable `@here` spawn notifications.',
@@ -204,6 +212,14 @@ const HELP_KO = [
   '`/가져오기` → 보스 타이머를 가져옵니다.',
   '`/내보내기` → 보스 타이머를 내보냅니다.',
   '',
+  '**길드 로테이션**',
+  '`로테이션 setup guild1=보스1,보스2 guild2=보스3` → 길드 로테이션을 설정합니다.',
+  '`로테이션` → 현재 로테이션을 표시합니다.',
+  '`로테이션 clear` → 로테이션을 초기화합니다.',
+  '`길드이름 1=이름1 2=이름2` → 길드 표시 이름을 설정합니다.',
+  '`길드이름` → 길드 이름을 표시합니다.',
+  '`길드이름 clear` → 길드 이름을 초기화합니다.',
+  '',
   '**알림**',
   '`/설정` → 알림 채널을 설정합니다.',
   '`/설정 ping_here:True` → `@here` 출현 알림을 활성화합니다.',
@@ -245,6 +261,14 @@ const HELP_JA = [
   '`全解除 確認` → すべての固定周期ボスタイマーをリセットします。',
   '`/いんぽーと` → ボスタイマーをインポートします。',
   '`/エクスポート` → ボスタイマーをエクスポートします。',
+  '',
+  '**ギルドローテーション**',
+  '`ローテーション setup guild1=ボス1,ボス2 guild2=ボス3` → ギルドローテーションを設定します。',
+  '`ローテーション` → 現在のローテーションを表示します。',
+  '`ローテーション clear` → ローテーションをクリアします。',
+  '`ギルド名 1=名前1 2=名前2` → ギルド表示名を設定します。',
+  '`ギルド名` → ギルド名を表示します。',
+  '`ギルド名 clear` → ギルド名をクリアします。',
   '',
   '**通知**',
   '`/せってい` → 通知チャンネルを設定します。',
@@ -514,7 +538,7 @@ export async function handleCommand(msg) {
     for (const [id, aliases] of Object.entries(CMD_ALIAS)) {
       const word = aliases[lang] || aliases.en;
       const paramKeys = { kill: 'kill', set: 'set', miss: 'miss', clear: 'clear', ut: 'ut', bl: 'bl', reset_tracker: 'reset_tracker', rotation: 'rotation', guildnames: 'guildnames' };
-      const paramDescs = { kill: 'killDesc', set: 'setDesc', miss: 'missDesc', clear: 'clearDesc', ut: 'utDesc', bl: 'blDesc', reset_tracker: 'resetDesc' };
+      const paramDescs = { kill: 'killDesc', set: 'setDesc', miss: 'missDesc', clear: 'clearDesc', ut: 'utDesc', bl: 'blDesc', reset_tracker: 'resetDesc', rotation: 'rotationDesc', guildnames: 'guildnamesDesc' };
       const params = { kill: '<bossname>', set: '<bossname> <MM/DD> <HHMM>', miss: '<bossname>', clear: '<bossname>', ut: '', bl: '', reset_tracker: '', rotation: 'setup guild1=Boss1,Boss2 guild2=Boss3', guildnames: '1=Name1 2=Name2' };
       help.push(`\`${word} ${params[id]}\` — ${tFn(paramDescs[id], lang)}`);
     }
