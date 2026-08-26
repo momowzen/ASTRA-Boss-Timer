@@ -2,7 +2,7 @@ import { ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder, Messa
 
 let config, timers, db, bossNameFn, tFn, formatJSTFn, BOSSES_DATA, TZ_OFFSET, LANG_LIST;
 let findBossFn, getNextSpawnFn, formatSpawnTimeFn, formatRemainingFn, visualLen, padL, padC, padR, detectLang, CMD_ALIAS, CMD_MAP;
-let sendAllNotifsFn, removeBossReactionsFn, resetBossCycleFn, saveTimersFn, addHistoryFn, speakDefeatedFn, speakSetFn, speakMissedFn;
+let sendAllNotifsFn, removeBossReactionsFn, resetBossCycleFn, saveTimersFn, addHistoryFn, saveConfigFn, speakDefeatedFn, speakSetFn, speakMissedFn;
 let notifMessageCache;
 
 export function initCommands(deps) {
@@ -31,6 +31,7 @@ export function initCommands(deps) {
   resetBossCycleFn = deps.resetBossCycle;
   saveTimersFn = deps.saveTimers;
   addHistoryFn = deps.addHistory;
+  saveConfigFn = deps.saveConfig;
   speakDefeatedFn = deps.speakDefeated;
   speakSetFn = deps.speakSet;
   speakMissedFn = deps.speakMissed;
@@ -46,20 +47,22 @@ const KILL = { en: 'Kill', ko: '처치', ja: '討伐' };
 const NEXT = { en: 'Next', ko: '다음', ja: '次回' };
 const BY = { en: 'By', ko: '기록', ja: '記録' };
 
-function buildEmbeds(rows, title, lang, color) {
+function buildEmbeds(rows, title, lang, color, guildNames) {
   if (!rows.length) return [];
   const W1 = 12;
   const pad = (s, w) => s + ' '.repeat(Math.max(0, w - visualLen(s)));
+  const guildLabels = rows.map(r => r.guild != null ? (guildNames?.[String(r.guild)] || String(r.guild)) : '---');
+  const W2 = Math.max(...guildLabels.map(g => visualLen(g)));
   const lines = [];
-  for (const row of rows) {
-    const spawnStr = row.spawnMs ? formatSpawnTimeFn(row.spawnMs) : '---';
-    lines.push(`${pad(spawnStr, W1)}${row.name}`);
+  for (let i = 0; i < rows.length; i++) {
+    const spawnStr = rows[i].spawnMs ? formatSpawnTimeFn(rows[i].spawnMs) : '---';
+    lines.push(`${pad(spawnStr, W1)}${pad(guildLabels[i], W2)}${rows[i].name}`);
   }
   const description = '```\n' + lines.join('\n') + '\n```';
   return [new EmbedBuilder().setTitle(title).setDescription(description).setColor(color)];
 }
 
-async function sendDefeatNotification(bossId, killedAt, endTime, statusKey, user) {
+async function sendDefeatNotification(bossId, killedAt, endTime, statusKey, user, timerEntry) {
   const nameEn = bossNameFn(bossId, 'en');
   const nameKo = bossNameFn(bossId, 'ko');
   const nameJa = bossNameFn(bossId, 'ja');
@@ -69,10 +72,19 @@ async function sendDefeatNotification(bossId, killedAt, endTime, statusKey, user
   const nextEn = formatSpawnTimeFn(endTime);
   const nextKo = formatSpawnTimeFn(endTime);
   const nextJa = formatSpawnTimeFn(endTime);
+  const gn = config.guildNames || {};
+  const guildLabelEn = tFn('colGuild', 'en');
+  const guildLabelKo = tFn('colGuild', 'ko');
+  const guildLabelJa = tFn('colGuild', 'ja');
+  let guildLine = '';
+  if (timerEntry?.guild != null) {
+    const guildName = gn[String(timerEntry.guild)] || String(timerEntry.guild);
+    guildLine = `\n${guildLabelEn}: ${guildName}`;
+  }
   await sendAllNotifsFn(
-    `**[**\`${TAG[statusKey].en}\`**] ${nameEn}**\n${KILL.en}: ${killEn} | ${NEXT.en}: ${nextEn}\n${BY.en}: ${user}`,
-    `**[**\`${TAG[statusKey].ko}\`**] ${nameKo}**\n${KILL.ko}: ${killKo} | ${NEXT.ko}: ${nextKo}\n${BY.ko}: ${user}`,
-    `**[**\`${TAG[statusKey].ja}\`**] ${nameJa}**\n${KILL.ja}: ${killJa} | ${NEXT.ja}: ${nextJa}\n${BY.ja}: ${user}`,
+    `**[**\`${TAG[statusKey].en}\`**] ${nameEn}**\n${KILL.en}: ${killEn} | ${NEXT.en}: ${nextEn}\n${BY.en}: ${user}${guildLine.replace(guildLabelEn, guildLabelEn)}`,
+    `**[**\`${TAG[statusKey].ko}\`**] ${nameKo}**\n${KILL.ko}: ${killKo} | ${NEXT.ko}: ${nextKo}\n${BY.ko}: ${user}${guildLine.replace(guildLabelEn, guildLabelKo)}`,
+    `**[**\`${TAG[statusKey].ja}\`**] ${nameJa}**\n${KILL.ja}: ${killJa} | ${NEXT.ja}: ${nextJa}\n${BY.ja}: ${user}${guildLine.replace(guildLabelEn, guildLabelJa)}`,
     bossId
   );
 }
@@ -267,10 +279,18 @@ export async function handleCommand(msg) {
     if (boss.weeklyRespawns) return msg.reply(tFn('scheduleOnly', lang));
     const now = Date.now();
     const endTime = now + boss.respawn * 1000;
-    timers[boss.id] = { endTime, startedAt: now };
+    const timerEntry = { endTime, startedAt: now };
+    const rotation = config.rotation || {};
+    if (rotation[boss.id] !== undefined) {
+      timerEntry.guild = rotation[boss.id];
+      rotation[boss.id] = rotation[boss.id] === 1 ? 2 : 1;
+      config.rotation = rotation;
+      await saveConfigFn();
+    }
+    timers[boss.id] = timerEntry;
     await removeBossReactionsFn(boss.id);
     resetBossCycleFn(boss.id);
-    await sendDefeatNotification(boss.id, now, endTime, 'defeated', getUserName(msg.author, msg.member));
+    await sendDefeatNotification(boss.id, now, endTime, 'defeated', getUserName(msg.author, msg.member), timerEntry);
     await saveTimersFn();
     await addHistoryFn(boss.id, 'killed', now);
     speakDefeatedFn(boss.id, endTime);
@@ -285,10 +305,18 @@ export async function handleCommand(msg) {
     if (boss.weeklyRespawns) return msg.reply(tFn('scheduleOnly', lang));
     const result = applySet(boss, parsed.date, parsed.time, msg.author, lang);
     if (typeof result === 'string') return msg.reply(result);
-    timers[boss.id] = { endTime: result.endTime, startedAt: result.killedAt };
+    const timerEntry = { endTime: result.endTime, startedAt: result.killedAt };
+    const rotation = config.rotation || {};
+    if (rotation[boss.id] !== undefined) {
+      timerEntry.guild = rotation[boss.id];
+      rotation[boss.id] = rotation[boss.id] === 1 ? 2 : 1;
+      config.rotation = rotation;
+      await saveConfigFn();
+    }
+    timers[boss.id] = timerEntry;
     await removeBossReactionsFn(boss.id);
     resetBossCycleFn(boss.id);
-    await sendDefeatNotification(boss.id, result.killedAt, result.endTime, 'manualSet', getUserName(msg.author, msg.member));
+    await sendDefeatNotification(boss.id, result.killedAt, result.endTime, 'manualSet', getUserName(msg.author, msg.member), timerEntry);
     await saveTimersFn();
     await addHistoryFn(boss.id, 'killed', result.killedAt);
     speakSetFn(boss.id, result.endTime);
@@ -305,10 +333,18 @@ export async function handleCommand(msg) {
     const now = Date.now();
     const killedAt = timer.endTime + 5 * 60 * 1000;
     const endTime = killedAt + boss.respawn * 1000;
-    timers[boss.id] = { endTime, startedAt: killedAt };
+    const timerEntry = { endTime, startedAt: killedAt };
+    const rotation = config.rotation || {};
+    if (rotation[boss.id] !== undefined) {
+      timerEntry.guild = rotation[boss.id];
+      rotation[boss.id] = rotation[boss.id] === 1 ? 2 : 1;
+      config.rotation = rotation;
+      await saveConfigFn();
+    }
+    timers[boss.id] = timerEntry;
     await removeBossReactionsFn(boss.id);
     resetBossCycleFn(boss.id);
-    await sendDefeatNotification(boss.id, killedAt, endTime, 'missed', getUserName(msg.author, msg.member));
+    await sendDefeatNotification(boss.id, killedAt, endTime, 'missed', getUserName(msg.author, msg.member), timerEntry);
     await saveTimersFn();
     await addHistoryFn(boss.id, 'missed', now);
     speakMissedFn(boss.id, endTime);
@@ -335,14 +371,16 @@ export async function handleCommand(msg) {
   if (cmd === 'bl') {
     const schedule = BOSSES_DATA.filter(b => b.weeklyRespawns && b.id !== 'Test');
     const interval = BOSSES_DATA.filter(b => b.respawn && b.id !== 'Test');
+    const gn = config.guildNames || {};
     const toRow = (boss) => {
       const next = getNextSpawnFn(boss);
-      return { spawnMs: next ? next.getTime() : null, name: bossNameFn(boss.id, lang) };
+      const timer = timers[boss.id];
+      return { spawnMs: next ? next.getTime() : null, name: bossNameFn(boss.id, lang), guild: timer?.guild ?? null };
     };
-    for (const embed of buildEmbeds(schedule.map(toRow), tFn('fixSchedule', lang).toUpperCase(), lang, 0x9B59B6)) {
+    for (const embed of buildEmbeds(schedule.map(toRow), tFn('fixSchedule', lang).toUpperCase(), lang, 0x9B59B6, gn)) {
       await msg.reply({ embeds: [embed] });
     }
-    for (const embed of buildEmbeds(interval.map(toRow), tFn('fixInterval', lang).toUpperCase(), lang, 0x3498DB)) {
+    for (const embed of buildEmbeds(interval.map(toRow), tFn('fixInterval', lang).toUpperCase(), lang, 0x3498DB, gn)) {
       await msg.reply({ embeds: [embed] });
     }
     return;
@@ -362,7 +400,8 @@ export async function handleCommand(msg) {
     }
     if (bosses.length === 0) return msg.reply(tFn('noActiveBosses', lang));
     bosses.sort((a, b) => a.time - b.time);
-    const embeds = buildEmbeds(bosses.map(({ boss, time }) => ({ spawnMs: time, name: bossNameFn(boss.id, lang) })), tFn('upcomingField', lang).toUpperCase(), lang, 0x2ECC71);
+    const gn = config.guildNames || {};
+    const embeds = buildEmbeds(bosses.map(({ boss, time }) => ({ spawnMs: time, name: bossNameFn(boss.id, lang), guild: timers[boss.id]?.guild ?? null })), tFn('upcomingField', lang).toUpperCase(), lang, 0x2ECC71, gn);
     for (const embed of embeds) await msg.reply({ embeds: [embed] });
     return;
   }
@@ -375,6 +414,9 @@ export async function handleCommand(msg) {
     for (const boss of BOSSES_DATA) {
       if (boss.respawn) { delete timers[boss.id]; await removeBossReactionsFn(boss.id).catch(() => {}); }
     }
+    config.rotation = {};
+    config.guildNames = {};
+    await saveConfigFn();
     await saveTimersFn();
     const user = getUserName(msg.author, msg.member);
     await sendAllNotifsFn(
@@ -385,13 +427,95 @@ export async function handleCommand(msg) {
     return;
   }
 
+  if (cmd === 'guildnames') {
+    const args = parts.slice(1).join(' ');
+    if (!args) {
+      const gn = config.guildNames || {};
+      const lines = [tFn('guildNamesTitle', lang) + ':'];
+      for (const [g, name] of Object.entries(gn)) lines.push(`${g} = ${name}`);
+      if (lines.length === 1) lines.push(tFn('rotationEmpty', lang));
+      return msg.reply(lines.join('\n'));
+    }
+    if (args.toLowerCase() === 'clear') {
+      config.guildNames = {};
+      await saveConfigFn();
+      return msg.reply(tFn('guildNamesCleared', lang));
+    }
+    const gn = {};
+    const parts2 = args.split(/\s+/);
+    for (const part of parts2) {
+      const m = part.match(/^(\d+)=(.+)$/);
+      if (m) gn[m[1]] = m[2];
+    }
+    if (Object.keys(gn).length === 0) {
+      return msg.reply(`Usage: \`guildnames 1=Name1 2=Name2\``);
+    }
+    config.guildNames = gn;
+    await saveConfigFn();
+    return msg.reply(tFn('guildNamesSet', lang));
+  }
+
+  if (cmd === 'rotation') {
+    const args = parts.slice(1).join(' ');
+    const rotation = config.rotation || {};
+    if (!args) {
+      const lines = [tFn('rotationTitle', lang) + ':'];
+      const grouped = {};
+      for (const [bossId, guild] of Object.entries(rotation)) {
+        if (!grouped[guild]) grouped[guild] = [];
+        grouped[guild].push(bossNameFn(bossId, lang));
+      }
+      const gn = config.guildNames || {};
+      for (const [g, bosses] of Object.entries(grouped)) {
+        const gName = gn[g] || g;
+        lines.push(`\nGuild ${gName}: ${bosses.join(', ')}`);
+      }
+      if (lines.length === 1) lines.push(tFn('rotationEmpty', lang));
+      return msg.reply(lines.join('\n'));
+    }
+    if (args.toLowerCase() === 'clear') {
+      config.rotation = {};
+      await saveConfigFn();
+      return msg.reply(tFn('rotationCleared', lang));
+    }
+    const setupMatch = args.match(/^setup\s+(.+)$/i);
+    if (!setupMatch) {
+      return msg.reply(`Usage: \`rotation setup guild1=Boss1,Boss2 guild2=Boss3\``);
+    }
+    const setupArgs = setupMatch[1];
+    const newRotation = {};
+    const warnings = [];
+    const chunks = setupArgs.split(/\s+/);
+    for (const chunk of chunks) {
+      const m = chunk.match(/^guild(\d+)=(.+)$/i);
+      if (!m) continue;
+      const guildNum = parseInt(m[1]);
+      const bossNames = m[2].split(',');
+      for (const bName of bossNames) {
+        const boss = findBossFn(bName.trim(), lang);
+        if (!boss) { warnings.push(`Boss not found: ${bName.trim()}`); continue; }
+        if (boss.weeklyRespawns) { warnings.push(`${bossNameFn(boss.id, lang)} is a weekly boss — skipped.`); continue; }
+        newRotation[boss.id] = guildNum;
+      }
+    }
+    if (Object.keys(newRotation).length === 0) {
+      return msg.reply(`Usage: \`rotation setup guild1=Boss1,Boss2 guild2=Boss3\``);
+    }
+    config.rotation = newRotation;
+    await saveConfigFn();
+    const user = getUserName(msg.author, msg.member);
+    const reply = [tFn('rotationSetup', lang), `${BY[lang]}: ${user}`];
+    if (warnings.length) reply.push(warnings.join('\n'));
+    return msg.reply(reply.join('\n'));
+  }
+
   if (cmd === 'astra' || cmd === 'tracker_commands' || content.toLowerCase() === '/tracker_commands') {
     const help = ['**ASTRA BOSS TIMER Commands**'];
     for (const [id, aliases] of Object.entries(CMD_ALIAS)) {
       const word = aliases[lang] || aliases.en;
-      const paramKeys = { kill: 'kill', set: 'set', miss: 'miss', clear: 'clear', ut: 'ut', bl: 'bl', reset_tracker: 'reset_tracker' };
+      const paramKeys = { kill: 'kill', set: 'set', miss: 'miss', clear: 'clear', ut: 'ut', bl: 'bl', reset_tracker: 'reset_tracker', rotation: 'rotation', guildnames: 'guildnames' };
       const paramDescs = { kill: 'killDesc', set: 'setDesc', miss: 'missDesc', clear: 'clearDesc', ut: 'utDesc', bl: 'blDesc', reset_tracker: 'resetDesc' };
-      const params = { kill: '<bossname>', set: '<bossname> <MM/DD> <HHMM>', miss: '<bossname>', clear: '<bossname>', ut: '', bl: '', reset_tracker: '' };
+      const params = { kill: '<bossname>', set: '<bossname> <MM/DD> <HHMM>', miss: '<bossname>', clear: '<bossname>', ut: '', bl: '', reset_tracker: '', rotation: 'setup guild1=Boss1,Boss2 guild2=Boss3', guildnames: '1=Name1 2=Name2' };
       help.push(`\`${word} ${params[id]}\` — ${tFn(paramDescs[id], lang)}`);
     }
     help.push(`\`/setup\` — ${tFn('setupDesc', lang)}`);
@@ -554,10 +678,18 @@ export async function handleInteraction(interaction) {
     interaction.deferUpdate().catch(() => {});
     const endTime = now + boss.respawn * 1000;
     if (timers[boss.id] && Math.abs(timers[boss.id].endTime - endTime) < 2000) return;
-    timers[boss.id] = { endTime, startedAt: now };
+    const timerEntry = { endTime, startedAt: now };
+    const rotation = config.rotation || {};
+    if (rotation[boss.id] !== undefined) {
+      timerEntry.guild = rotation[boss.id];
+      rotation[boss.id] = rotation[boss.id] === 1 ? 2 : 1;
+      config.rotation = rotation;
+      await saveConfigFn();
+    }
+    timers[boss.id] = timerEntry;
     await removeBossReactionsFn(boss.id);
     resetBossCycleFn(boss.id);
-    await sendDefeatNotification(bossId, now, endTime, 'defeated', getUserName(interaction.user, interaction.member));
+    await sendDefeatNotification(bossId, now, endTime, 'defeated', getUserName(interaction.user, interaction.member), timerEntry);
     await saveTimersFn();
     await addHistoryFn(boss.id, 'killed', now);
     speakDefeatedFn(bossId, endTime);
@@ -570,10 +702,18 @@ export async function handleInteraction(interaction) {
     const killedAt = timer?.endTime + 5 * 60 * 1000 || now;
     const endTime = killedAt + boss.respawn * 1000;
     if (timers[boss.id] && timers[boss.id].endTime && Math.abs(timers[boss.id].endTime - endTime) < 2000) return;
-    timers[boss.id] = { endTime, startedAt: killedAt };
+    const timerEntry = { endTime, startedAt: killedAt };
+    const rotation = config.rotation || {};
+    if (rotation[boss.id] !== undefined) {
+      timerEntry.guild = rotation[boss.id];
+      rotation[boss.id] = rotation[boss.id] === 1 ? 2 : 1;
+      config.rotation = rotation;
+      await saveConfigFn();
+    }
+    timers[boss.id] = timerEntry;
     await removeBossReactionsFn(boss.id);
     resetBossCycleFn(boss.id);
-    await sendDefeatNotification(bossId, killedAt, endTime, 'missed', getUserName(interaction.user, interaction.member));
+    await sendDefeatNotification(bossId, killedAt, endTime, 'missed', getUserName(interaction.user, interaction.member), timerEntry);
     await saveTimersFn();
     await addHistoryFn(boss.id, 'missed', now);
     speakMissedFn(bossId, endTime);

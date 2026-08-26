@@ -88,7 +88,9 @@ const CMD_ALIAS = {
   clear: { en: 'clear', ko: '초기화', ja: '解除' },
   bl: { en: 'bl', ko: '목록', ja: '一覧' },
   ut: { en: 'ut', ko: '곧', ja: 'まもなく' },
-  reset_tracker: { en: 'reset_tracker', ko: '초기화_전체', ja: '全解除' }
+  reset_tracker: { en: 'reset_tracker', ko: '초기화_전체', ja: '全解除' },
+  rotation: { en: 'rotation', ko: '로테이션', ja: 'ローテーション' },
+  guildnames: { en: 'guildnames', ko: '길드이름', ja: 'ギルド名' }
 };
 
 let CMD_MAP = {};
@@ -195,6 +197,10 @@ async function saveTimers() {
   await db.collection('timers').doc('global').set({ timers }, { merge: false });
 }
 
+async function saveConfig() {
+  await db.collection('config').doc('discordBot').set(config, { merge: false });
+}
+
 async function addHistory(bossId, type, timestamp) {
   try {
     await db.collection('history').add({
@@ -231,7 +237,7 @@ initCommands({
   visualLen, padL, padC, padR, detectLang,
   CMD_ALIAS, CMD_MAP,
   sendAllNotifs, removeBossReactions, resetBossCycle,
-  saveTimers, addHistory,
+  saveTimers, addHistory, saveConfig,
   speakDefeated: (bid, end) => speakDefeated(bid, end, BOSSES_DATA),
   speakSet: (bid, end) => speakSet(bid, end, BOSSES_DATA),
   speakMissed: (bid, end) => speakMissed(bid, end, BOSSES_DATA),

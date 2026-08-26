@@ -143,10 +143,16 @@ export async function startNotifLoop() {
           sentSoonNotifs.add(cycleKey);
           const notifId = `${id}_soon_${info.endTime}`;
           const prefix = config.pingHere ? '\n@here' : '';
+          const gn = config.guildNames || {};
+          let guildLine = '';
+          if (info.guild != null) {
+            const guildName = gn[String(info.guild)] || String(info.guild);
+            guildLine = `\n${tFn('colGuild', 'en')}: ${guildName}`;
+          }
           const msgs = await sendAllNotifsFn(
-            `**[**\`SPAWNING\`**] ${bossNameFn(id, 'en')}**\nSpawn: ${formatJSTFn(info.endTime, 'en')}${prefix}`,
-            `**[**\`출현 예정\`**] ${bossNameFn(id, 'ko')}**\n출현: ${formatJSTFn(info.endTime, 'ko')}${prefix}`,
-            `**[**\`出現予定\`**] ${bossNameFn(id, 'ja')}**\n出現: ${formatJSTFn(info.endTime, 'ja')}${prefix}`,
+            `**[**\`SPAWNING\`**] ${bossNameFn(id, 'en')}**\nSpawn: ${formatJSTFn(info.endTime, 'en')}${guildLine}${prefix}`,
+            `**[**\`출현 예정\`**] ${bossNameFn(id, 'ko')}**\n출현: ${formatJSTFn(info.endTime, 'ko')}${guildLine.replace(tFn('colGuild', 'en'), tFn('colGuild', 'ko'))}${prefix}`,
+            `**[**\`出現予定\`**] ${bossNameFn(id, 'ja')}**\n出現: ${formatJSTFn(info.endTime, 'ja')}${guildLine.replace(tFn('colGuild', 'en'), tFn('colGuild', 'ja'))}${prefix}`,
             id, hasButtons
           );
           if (timers[id] !== info) continue;
@@ -161,18 +167,24 @@ export async function startNotifLoop() {
           sentSpawnedNotifs.add(cycleKey);
           speakSpawnedFn(bossNameFn(id, config.voiceLang));
           
+          const gn = config.guildNames || {};
+          let guildLine = '';
+          if (info.guild != null) {
+            const guildName = gn[String(info.guild)] || String(info.guild);
+            guildLine = `\n${tFn('colGuild', 'en')}: ${guildName}`;
+          }
           const cached = notifMessageCache.get(id);
           if (cached) {
             const edits = [];
-          if (cached.en) edits.push(cached.en.edit({ content: `**[**\`SPAWNED\`**] ${bossNameFn(id, 'en')}**`, components: cached.en.components }).catch(() => {}));
-          if (cached.ko) edits.push(cached.ko.edit({ content: `**[**\`출현\`**] ${bossNameFn(id, 'ko')}**`, components: cached.ko.components }).catch(() => {}));
-          if (cached.ja) edits.push(cached.ja.edit({ content: `**[**\`出現\`**] ${bossNameFn(id, 'ja')}**`, components: cached.ja.components }).catch(() => {}));
+          if (cached.en) edits.push(cached.en.edit({ content: `**[**\`SPAWNED\`**] ${bossNameFn(id, 'en')}**${guildLine}`, components: cached.en.components }).catch(() => {}));
+          if (cached.ko) edits.push(cached.ko.edit({ content: `**[**\`출현\`**] ${bossNameFn(id, 'ko')}**${guildLine.replace(tFn('colGuild', 'en'), tFn('colGuild', 'ko'))}`, components: cached.ko.components }).catch(() => {}));
+          if (cached.ja) edits.push(cached.ja.edit({ content: `**[**\`出現\`**] ${bossNameFn(id, 'ja')}**${guildLine.replace(tFn('colGuild', 'en'), tFn('colGuild', 'ja'))}`, components: cached.ja.components }).catch(() => {}));
             await Promise.all(edits);
           } else {
             await sendAllNotifsFn(
-              `**[**\`SPAWNED\`**] ${bossNameFn(id, 'en')}**`,
-              `**[**\`출현\`**] ${bossNameFn(id, 'ko')}**`,
-              `**[**\`出現\`**] ${bossNameFn(id, 'ja')}**`,
+              `**[**\`SPAWNED\`**] ${bossNameFn(id, 'en')}**${guildLine}`,
+              `**[**\`출현\`**] ${bossNameFn(id, 'ko')}**${guildLine.replace(tFn('colGuild', 'en'), tFn('colGuild', 'ko'))}`,
+              `**[**\`出現\`**] ${bossNameFn(id, 'ja')}**${guildLine.replace(tFn('colGuild', 'en'), tFn('colGuild', 'ja'))}`,
               false
             );
           }
