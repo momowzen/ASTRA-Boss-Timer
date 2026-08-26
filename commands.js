@@ -56,7 +56,7 @@ function buildEmbeds(rows, title, lang, color, guildNames) {
   const lines = [];
   for (let i = 0; i < rows.length; i++) {
     const spawnStr = rows[i].spawnMs ? formatSpawnTimeFn(rows[i].spawnMs) : '---';
-    lines.push(`${pad(spawnStr, W1)}${pad(guildLabels[i], W2)}${rows[i].name}`);
+    lines.push(`${pad(spawnStr, W1)}${pad(guildLabels[i], W2)}  ${rows[i].name}`);
   }
   const description = '```\n' + lines.join('\n') + '\n```';
   return [new EmbedBuilder().setTitle(title).setDescription(description).setColor(color)];
