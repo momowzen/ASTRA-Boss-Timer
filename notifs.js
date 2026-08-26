@@ -1,7 +1,7 @@
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
 
 let client, config, db, timers, bossNameFn, tFn, formatJSTFn, LANG_LIST, BOSSES_DATA;
-let getNextSpawnFn, sendAllNotifs, removeBossReactions, resetBossCycle;
+let getNextSpawnFn, sendAllNotifs, removeBossReactions, resetBossCycle, saveConfigFn;
 
 let notifMessageCache;
 let sentSoonNotifs;
@@ -28,6 +28,7 @@ export function initNotifs(deps) {
   speakFn = deps.speak;
   speakFromNotifLoopFn = deps.speakFromNotifLoop;
   speakSpawnedFn = deps.speakSpawned;
+  saveConfigFn = deps.saveConfig;
 }
 
 function getChannel(lang) {
@@ -125,7 +126,17 @@ export async function startNotifLoop() {
         const remainingMs = info.endTime - now;
         if (!boss.respawn && remainingMs < -300000) {
           const next = getNextSpawnFn(boss);
-          if (next) { timers[id] = { endTime: next.getTime(), startedAt: next.getTime(), weekly: true }; continue; }
+          if (next) {
+            timers[id] = { endTime: next.getTime(), startedAt: next.getTime(), weekly: true };
+            const rotation = config.rotation || {};
+            if (rotation[id] !== undefined) {
+              rotation[id] = rotation[id] === 1 ? 2 : 1;
+              config.rotation = rotation;
+              await saveConfigFn();
+            }
+            timers[id].rotated = true;
+            continue;
+          }
         }
 
         const cycleKey = `${id}_${info.endTime}`;

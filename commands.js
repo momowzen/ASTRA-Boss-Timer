@@ -300,12 +300,12 @@ export async function handleCommand(msg) {
     const query = parts.slice(1).join(' ');
     const boss = findBossFn(query, lang);
     if (!boss) return msg.reply(`${tFn('bossNotFound', lang)} ${query}`);
-    if (boss.weeklyRespawns) return msg.reply(tFn('scheduleOnly', lang));
     const now = Date.now();
-    const endTime = now + boss.respawn * 1000;
+    const endTime = boss.weeklyRespawns ? getNextSpawnFn(boss)?.getTime() : now + boss.respawn * 1000;
+    const alreadyRotated = timers[boss.id]?.rotated === true;
     const timerEntry = { endTime, startedAt: now };
     const rotation = config.rotation || {};
-    if (rotation[boss.id] !== undefined) {
+    if (rotation[boss.id] !== undefined && !alreadyRotated) {
       timerEntry.guild = rotation[boss.id];
       rotation[boss.id] = rotation[boss.id] === 1 ? 2 : 1;
       config.rotation = rotation;
@@ -326,12 +326,17 @@ export async function handleCommand(msg) {
     if (!parsed) return msg.reply(tFn('invalidTime', lang));
     const boss = findBossFn(parsed.name, lang);
     if (!boss) return msg.reply(`${tFn('bossNotFound', lang)} ${parsed.name}`);
-    if (boss.weeklyRespawns) return msg.reply(tFn('scheduleOnly', lang));
     const result = applySet(boss, parsed.date, parsed.time, msg.author, lang);
     if (typeof result === 'string') return msg.reply(result);
-    const timerEntry = { endTime: result.endTime, startedAt: result.killedAt };
+    let endTime = result.endTime;
+    if (boss.weeklyRespawns) {
+      const next = getNextSpawnFn(boss);
+      if (next) endTime = next.getTime();
+    }
+    const alreadyRotated = timers[boss.id]?.rotated === true;
+    const timerEntry = { endTime, startedAt: result.killedAt };
     const rotation = config.rotation || {};
-    if (rotation[boss.id] !== undefined) {
+    if (rotation[boss.id] !== undefined && !alreadyRotated) {
       timerEntry.guild = rotation[boss.id];
       rotation[boss.id] = rotation[boss.id] === 1 ? 2 : 1;
       config.rotation = rotation;
@@ -340,10 +345,10 @@ export async function handleCommand(msg) {
     timers[boss.id] = timerEntry;
     await removeBossReactionsFn(boss.id);
     resetBossCycleFn(boss.id);
-    await sendDefeatNotification(boss.id, result.killedAt, result.endTime, 'manualSet', getUserName(msg.author, msg.member), timerEntry);
+    await sendDefeatNotification(boss.id, result.killedAt, endTime, 'manualSet', getUserName(msg.author, msg.member), timerEntry);
     await saveTimersFn();
     await addHistoryFn(boss.id, 'killed', result.killedAt);
-    speakSetFn(boss.id, result.endTime);
+    speakSetFn(boss.id, endTime);
     return;
   }
 
@@ -351,15 +356,15 @@ export async function handleCommand(msg) {
     const query = parts.slice(1).join(' ');
     const boss = findBossFn(query, lang);
     if (!boss) return msg.reply(`${tFn('bossNotFound', lang)} ${query}`);
-    if (boss.weeklyRespawns) return msg.reply(tFn('scheduleOnly', lang));
     const timer = timers[boss.id];
     if (!timer || !timer.endTime) return msg.reply(`${tFn('noTimer', lang)} ${bossNameFn(boss.id, lang)}`);
     const now = Date.now();
     const killedAt = timer.endTime + 5 * 60 * 1000;
-    const endTime = killedAt + boss.respawn * 1000;
+    const endTime = boss.weeklyRespawns ? getNextSpawnFn(boss)?.getTime() : killedAt + boss.respawn * 1000;
+    const alreadyRotated = timers[boss.id]?.rotated === true;
     const timerEntry = { endTime, startedAt: killedAt };
     const rotation = config.rotation || {};
-    if (rotation[boss.id] !== undefined) {
+    if (rotation[boss.id] !== undefined && !alreadyRotated) {
       timerEntry.guild = rotation[boss.id];
       rotation[boss.id] = rotation[boss.id] === 1 ? 2 : 1;
       config.rotation = rotation;
@@ -518,7 +523,6 @@ export async function handleCommand(msg) {
       for (const bName of bossNames) {
         const boss = findBossFn(bName.trim(), lang);
         if (!boss) { warnings.push(`Boss not found: ${bName.trim()}`); continue; }
-        if (boss.weeklyRespawns) { warnings.push(`${bossNameFn(boss.id, lang)} is a weekly boss — skipped.`); continue; }
         newRotation[boss.id] = guildNum;
       }
     }
@@ -552,16 +556,29 @@ export async function handleCommand(msg) {
     if (parsed) {
       const boss = findBossFn(parsed.name, lang);
       if (!boss) return msg.reply(`${tFn('bossNotFound', lang)} ${parsed.name}`);
-      if (boss.weeklyRespawns) return msg.reply(tFn('scheduleOnly', lang));
       const result = applySet(boss, parsed.date, parsed.time, msg.author, lang);
       if (typeof result === 'string') return msg.reply(result);
-      timers[boss.id] = { endTime: result.endTime, startedAt: result.killedAt };
+      let endTime = result.endTime;
+      if (boss.weeklyRespawns) {
+        const next = getNextSpawnFn(boss);
+        if (next) endTime = next.getTime();
+      }
+      const alreadyRotated = timers[boss.id]?.rotated === true;
+      const timerEntry = { endTime, startedAt: result.killedAt };
+      const rotation = config.rotation || {};
+      if (rotation[boss.id] !== undefined && !alreadyRotated) {
+        timerEntry.guild = rotation[boss.id];
+        rotation[boss.id] = rotation[boss.id] === 1 ? 2 : 1;
+        config.rotation = rotation;
+        await saveConfigFn();
+      }
+      timers[boss.id] = timerEntry;
       await removeBossReactionsFn(boss.id);
       resetBossCycleFn(boss.id);
-      await sendDefeatNotification(boss.id, result.killedAt, result.endTime, 'manualSet', getUserName(msg.author, msg.member));
+      await sendDefeatNotification(boss.id, result.killedAt, endTime, 'manualSet', getUserName(msg.author, msg.member), timerEntry);
       await saveTimersFn();
       await addHistoryFn(boss.id, 'killed', result.killedAt);
-      speakSetFn(boss.id, result.endTime);
+      speakSetFn(boss.id, endTime);
       return;
     }
 
@@ -570,13 +587,21 @@ export async function handleCommand(msg) {
       const query = parts.slice(0, -1).join(' ');
       const boss = findBossFn(query, lang);
       if (!boss) return msg.reply(`${tFn('bossNotFound', lang)} ${query}`);
-      if (boss.weeklyRespawns) return msg.reply(tFn('scheduleOnly', lang));
       const now = Date.now();
-      const endTime = now + boss.respawn * 1000;
-      timers[boss.id] = { endTime, startedAt: now };
+      const endTime = boss.weeklyRespawns ? getNextSpawnFn(boss)?.getTime() : now + boss.respawn * 1000;
+      const alreadyRotated = timers[boss.id]?.rotated === true;
+      const timerEntry = { endTime, startedAt: now };
+      const rotation = config.rotation || {};
+      if (rotation[boss.id] !== undefined && !alreadyRotated) {
+        timerEntry.guild = rotation[boss.id];
+        rotation[boss.id] = rotation[boss.id] === 1 ? 2 : 1;
+        config.rotation = rotation;
+        await saveConfigFn();
+      }
+      timers[boss.id] = timerEntry;
       await removeBossReactionsFn(boss.id);
       resetBossCycleFn(boss.id);
-      await sendDefeatNotification(boss.id, now, endTime, 'defeated', getUserName(msg.author, msg.member));
+      await sendDefeatNotification(boss.id, now, endTime, 'defeated', getUserName(msg.author, msg.member), timerEntry);
       await saveTimersFn();
       await addHistoryFn(boss.id, 'killed', now);
       speakDefeatedFn(boss.id, endTime);

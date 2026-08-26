@@ -223,7 +223,8 @@ initNotifs({
   notifMessageCache, sentSoonNotifs, sentSpawnedNotifs, ttsSpokenMinutes,
   speak: (text) => speak(text),
   speakFromNotifLoop: (bn, m) => speakFromNotifLoop(bn, m),
-  speakSpawned: (bn) => speakSpawned(bn)
+  speakSpawned: (bn) => speakSpawned(bn),
+  saveConfig
 });
 
 const sendAllNotifs = sendAllNotifsFn;
