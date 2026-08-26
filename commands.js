@@ -500,7 +500,7 @@ export async function handleCommand(msg) {
       const gn = config.guildNames || {};
       for (const [g, bosses] of Object.entries(grouped)) {
         const gName = gn[g] || g;
-        lines.push(`\nGuild ${gName}: ${bosses.join(', ')}`);
+        lines.push(`\n${gName}: ${bosses.join(', ')}`);
       }
       if (lines.length === 1) lines.push(tFn('rotationEmpty', lang));
       return msg.reply(lines.join('\n'));
