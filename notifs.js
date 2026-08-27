@@ -127,7 +127,7 @@ export async function startNotifLoop() {
         if (!boss.respawn && remainingMs < -300000) {
           const next = getNextSpawnFn(boss);
           if (next) {
-            timers[id] = { endTime: next.getTime(), startedAt: next.getTime(), weekly: true };
+            timers[id] = { endTime: next.getTime(), startedAt: next.getTime(), weekly: true, guild: info.guild };
             const rotation = config.rotation || {};
             if (rotation[id] !== undefined) {
               rotation[id] = rotation[id] === 1 ? 2 : 1;
@@ -155,9 +155,11 @@ export async function startNotifLoop() {
           const notifId = `${id}_soon_${info.endTime}`;
           const prefix = config.pingHere ? '\n@here' : '';
           const gn = config.guildNames || {};
+          const rotation = config.rotation || {};
           let guildLine = '';
-          if (info.guild != null) {
-            const guildName = gn[String(info.guild)] || String(info.guild);
+          const guild = info.guild ?? rotation[id] ?? null;
+          if (guild != null) {
+            const guildName = gn[String(guild)] || String(guild);
             guildLine = `\n${tFn('colGuild', 'en')}: ${guildName}`;
           }
           const msgs = await sendAllNotifsFn(
@@ -179,9 +181,11 @@ export async function startNotifLoop() {
           speakSpawnedFn(bossNameFn(id, config.voiceLang));
           
           const gn = config.guildNames || {};
+          const rotation = config.rotation || {};
           let guildLine = '';
-          if (info.guild != null) {
-            const guildName = gn[String(info.guild)] || String(info.guild);
+          const guild = info.guild ?? rotation[id] ?? null;
+          if (guild != null) {
+            const guildName = gn[String(guild)] || String(guild);
             guildLine = `\n${tFn('colGuild', 'en')}: ${guildName}`;
           }
           const cached = notifMessageCache.get(id);
