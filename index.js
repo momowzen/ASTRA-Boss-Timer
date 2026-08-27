@@ -90,7 +90,8 @@ const CMD_ALIAS = {
   ut: { en: 'ut', ko: '곧', ja: 'まもなく' },
   reset_tracker: { en: 'reset_tracker', ko: '초기화_전체', ja: '全解除' },
   rotation: { en: 'rotation', ko: '로테이션', ja: 'ローテーション' },
-  guildnames: { en: 'guildnames', ko: '길드이름', ja: 'ギルド名' }
+  guildnames: { en: 'guildnames', ko: '길드이름', ja: 'ギルド名' },
+  ug: { en: 'ug', ko: '길드', ja: 'ギルド' }
 };
 
 let CMD_MAP = {};

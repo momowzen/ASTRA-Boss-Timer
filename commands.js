@@ -62,6 +62,18 @@ function buildEmbeds(rows, title, lang, color, guildNames) {
   return [new EmbedBuilder().setTitle(title).setDescription(description).setColor(color)];
 }
 
+function buildGuildEmbeds(rows, title, color) {
+  if (!rows.length) return [];
+  const W1 = 12;
+  const pad = (s, w) => s + ' '.repeat(Math.max(0, w - visualLen(s)));
+  const lines = rows.map(r => {
+    const spawnStr = r.spawnMs ? formatSpawnTimeFn(r.spawnMs) : '---';
+    return `${pad(spawnStr, W1)}${r.name}`;
+  });
+  const description = '```\n' + lines.join('\n') + '\n```';
+  return [new EmbedBuilder().setTitle(title).setDescription(description).setColor(color)];
+}
+
 async function sendDefeatNotification(bossId, killedAt, endTime, statusKey, user, timerEntry) {
   const nameEn = bossNameFn(bossId, 'en');
   const nameKo = bossNameFn(bossId, 'ko');
@@ -156,6 +168,7 @@ const HELP_EN = [
   '**Boss Lists**',
   '`bl` → Show all boss timers. Not sorted.',
   '`ut` → Show bosses spawning within the next 24 hours.',
+  '`ug` → Show upcoming bosses grouped by guild.',
   '',
   '**Tracker Management**',
   '`reset_tracker confirm` → Reset all interval boss timers.',
@@ -206,6 +219,7 @@ const HELP_KO = [
   '**보스 목록**',
   '`목록` → 모든 보스 타이머를 표시합니다. 정렬되지 않습니다.',
   '`곧` → 앞으로 24시간 이내에 출현하는 보스를 표시합니다.',
+  '`길드` → 길드별로 분류하여 출현 예정 보스를 표시합니다.',
   '',
   '**트래커 관리**',
   '`초기화_전체 확인` → 모든 고정 주기 보스 타이머를 초기화합니다.',
@@ -256,6 +270,7 @@ const HELP_JA = [
   '**ボス一覧**',
   '`一覧` → すべてのボスタイマーを表示します。並び替えはありません。',
   '`まもなく` → 今後24時間以内に出現するボスを表示します。',
+  '`ギルド` → ギルド別に分類した出現予定ボスを表示します。',
   '',
   '**トラッカー管理**',
   '`全解除 確認` → すべての固定周期ボスタイマーをリセットします。',
@@ -438,6 +453,44 @@ export async function handleCommand(msg) {
     return;
   }
 
+  if (cmd === 'ug') {
+    const now = Date.now();
+    const cutoff24h = now + 86400000;
+    const bosses = [];
+    for (const boss of BOSSES_DATA) {
+      if (boss.id === 'Test') continue;
+      const next = getNextSpawnFn(boss);
+      if (next) {
+        const time = next.getTime();
+        if (time >= now && time <= cutoff24h) bosses.push({ boss, time });
+      }
+    }
+    if (bosses.length === 0) return msg.reply(tFn('noActiveBosses', lang));
+    const gn = config.guildNames || {};
+    const rotation = config.rotation || {};
+    const groups = { 1: [], 2: [], null: [] };
+    for (const { boss, time } of bosses) {
+      const guild = timers[boss.id]?.guild ?? rotation[boss.id] ?? null;
+      const key = guild === 1 ? 1 : guild === 2 ? 2 : null;
+      groups[key].push({ spawnMs: time, name: bossNameFn(boss.id, lang) });
+    }
+    for (const key of [1, 2, null]) {
+      groups[key].sort((a, b) => a.spawnMs - b.spawnMs);
+    }
+    if (groups[1].length) {
+      const gName = gn['1'] || 'Guild 1';
+      for (const embed of buildGuildEmbeds(groups[1], gName, 0x2ECC71)) await msg.reply({ embeds: [embed] });
+    }
+    if (groups[2].length) {
+      const gName = gn['2'] || 'Guild 2';
+      for (const embed of buildGuildEmbeds(groups[2], gName, 0x2ECC71)) await msg.reply({ embeds: [embed] });
+    }
+    if (groups[null].length) {
+      for (const embed of buildGuildEmbeds(groups[null], tFn('unassigned', lang), 0x2ECC71)) await msg.reply({ embeds: [embed] });
+    }
+    return;
+  }
+
   if (cmd === 'reset_tracker') {
     const msgContent = parts.slice(1).join(' ').toLowerCase();
     if (!['confirm', '확인', '確認'].includes(msgContent)) {
@@ -544,9 +597,9 @@ export async function handleCommand(msg) {
     const help = ['**ASTRA BOSS TIMER Commands**'];
     for (const [id, aliases] of Object.entries(CMD_ALIAS)) {
       const word = aliases[lang] || aliases.en;
-      const paramKeys = { kill: 'kill', set: 'set', miss: 'miss', clear: 'clear', ut: 'ut', bl: 'bl', reset_tracker: 'reset_tracker', rotation: 'rotation', guildnames: 'guildnames' };
-      const paramDescs = { kill: 'killDesc', set: 'setDesc', miss: 'missDesc', clear: 'clearDesc', ut: 'utDesc', bl: 'blDesc', reset_tracker: 'resetDesc', rotation: 'rotationDesc', guildnames: 'guildnamesDesc' };
-      const params = { kill: '<bossname>', set: '<bossname> <MM/DD> <HHMM>', miss: '<bossname>', clear: '<bossname>', ut: '', bl: '', reset_tracker: '', rotation: 'setup guild1=Boss1,Boss2 guild2=Boss3', guildnames: '1=Name1 2=Name2' };
+      const paramKeys = { kill: 'kill', set: 'set', miss: 'miss', clear: 'clear', ut: 'ut', ug: 'ug', bl: 'bl', reset_tracker: 'reset_tracker', rotation: 'rotation', guildnames: 'guildnames' };
+      const paramDescs = { kill: 'killDesc', set: 'setDesc', miss: 'missDesc', clear: 'clearDesc', ut: 'utDesc', ug: 'ugDesc', bl: 'blDesc', reset_tracker: 'resetDesc', rotation: 'rotationDesc', guildnames: 'guildnamesDesc' };
+      const params = { kill: '<bossname>', set: '<bossname> <MM/DD> <HHMM>', miss: '<bossname>', clear: '<bossname>', ut: '', ug: '', bl: '', reset_tracker: '', rotation: 'setup guild1=Boss1,Boss2 guild2=Boss3', guildnames: '1=Name1 2=Name2' };
       help.push(`\`${word} ${params[id]}\` — ${tFn(paramDescs[id], lang)}`);
     }
     help.push(`\`/setup\` — ${tFn('setupDesc', lang)}`);
