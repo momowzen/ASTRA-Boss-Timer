@@ -195,7 +195,14 @@ async function loadTimers() {
 }
 
 async function saveTimers() {
-  await db.collection('timers').doc('global').set({ timers }, { merge: false });
+  const clean = {};
+  for (const [id, t] of Object.entries(timers)) {
+    clean[id] = {};
+    for (const [k, v] of Object.entries(t)) {
+      if (v !== undefined) clean[id][k] = v;
+    }
+  }
+  await db.collection('timers').doc('global').set({ timers: clean }, { merge: false });
 }
 
 async function saveConfig() {
