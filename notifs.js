@@ -159,7 +159,7 @@ export async function startNotifLoop() {
           const gn = config.guildNames || {};
           const rotation = config.rotation || {};
           let guildLine = '';
-          const guild = info.guild ?? rotation[id] ?? null;
+          const guild = rotation[id] ?? info.guild ?? null;
           if (guild != null) {
             const guildName = gn[String(guild)] || String(guild);
             guildLine = `\n${tFn('colGuild', 'en')}: ${guildName}`;
@@ -185,7 +185,7 @@ export async function startNotifLoop() {
           const gn = config.guildNames || {};
           const rotation = config.rotation || {};
           let guildLine = '';
-          const guild = info.guild ?? rotation[id] ?? null;
+          const guild = rotation[id] ?? info.guild ?? null;
           if (guild != null) {
             const guildName = gn[String(guild)] || String(guild);
             guildLine = `\n${tFn('colGuild', 'en')}: ${guildName}`;
