@@ -232,7 +232,8 @@ initNotifs({
   speak: (text) => speak(text),
   speakFromNotifLoop: (bn, m) => speakFromNotifLoop(bn, m),
   speakSpawned: (bn) => speakSpawned(bn),
-  saveConfig
+  saveConfig,
+  saveTimers
 });
 
 const sendAllNotifs = sendAllNotifsFn;

@@ -783,9 +783,10 @@ export async function handleInteraction(interaction) {
     interaction.deferUpdate().catch(() => {});
     const endTime = now + boss.respawn * 1000;
     if (timers[boss.id] && Math.abs(timers[boss.id].endTime - endTime) < 2000) return;
+    const alreadyRotated = timers[boss.id]?.rotated === true;
     const timerEntry = { endTime, startedAt: now };
     const rotation = config.rotation || {};
-    if (rotation[boss.id] !== undefined) {
+    if (rotation[boss.id] !== undefined && !alreadyRotated) {
       timerEntry.guild = rotation[boss.id];
       rotation[boss.id] = rotation[boss.id] === 1 ? 2 : 1;
       config.rotation = rotation;
@@ -807,9 +808,10 @@ export async function handleInteraction(interaction) {
     const killedAt = timer?.endTime + 5 * 60 * 1000 || now;
     const endTime = killedAt + boss.respawn * 1000;
     if (timers[boss.id] && timers[boss.id].endTime && Math.abs(timers[boss.id].endTime - endTime) < 2000) return;
+    const alreadyRotated = timers[boss.id]?.rotated === true;
     const timerEntry = { endTime, startedAt: killedAt };
     const rotation = config.rotation || {};
-    if (rotation[boss.id] !== undefined) {
+    if (rotation[boss.id] !== undefined && !alreadyRotated) {
       timerEntry.guild = rotation[boss.id];
       rotation[boss.id] = rotation[boss.id] === 1 ? 2 : 1;
       config.rotation = rotation;
