@@ -84,19 +84,10 @@ async function sendDefeatNotification(bossId, killedAt, endTime, statusKey, user
   const nextEn = formatSpawnTimeFn(endTime);
   const nextKo = formatSpawnTimeFn(endTime);
   const nextJa = formatSpawnTimeFn(endTime);
-  const gn = config.guildNames || {};
-  const guildLabelEn = tFn('colGuild', 'en');
-  const guildLabelKo = tFn('colGuild', 'ko');
-  const guildLabelJa = tFn('colGuild', 'ja');
-  let guildLine = '';
-  if (timerEntry?.guild != null) {
-    const guildName = gn[String(timerEntry.guild)] || String(timerEntry.guild);
-    guildLine = `\n${guildLabelEn}: ${guildName}`;
-  }
   await sendAllNotifsFn(
-    `**[**\`${TAG[statusKey].en}\`**] ${nameEn}**\n${KILL.en}: ${killEn} | ${NEXT.en}: ${nextEn}\n${BY.en}: ${user}${guildLine.replace(guildLabelEn, guildLabelEn)}`,
-    `**[**\`${TAG[statusKey].ko}\`**] ${nameKo}**\n${KILL.ko}: ${killKo} | ${NEXT.ko}: ${nextKo}\n${BY.ko}: ${user}${guildLine.replace(guildLabelEn, guildLabelKo)}`,
-    `**[**\`${TAG[statusKey].ja}\`**] ${nameJa}**\n${KILL.ja}: ${killJa} | ${NEXT.ja}: ${nextJa}\n${BY.ja}: ${user}${guildLine.replace(guildLabelEn, guildLabelJa)}`,
+    `**[**\`${TAG[statusKey].en}\`**] ${nameEn}**\n${KILL.en}: ${killEn} | ${NEXT.en}: ${nextEn}\n${BY.en}: ${user}`,
+    `**[**\`${TAG[statusKey].ko}\`**] ${nameKo}**\n${KILL.ko}: ${killKo} | ${NEXT.ko}: ${nextKo}\n${BY.ko}: ${user}`,
+    `**[**\`${TAG[statusKey].ja}\`**] ${nameJa}**\n${KILL.ja}: ${killJa} | ${NEXT.ja}: ${nextJa}\n${BY.ja}: ${user}`,
     bossId
   );
 }
@@ -320,7 +311,7 @@ export async function handleCommand(msg) {
     const alreadyRotated = timers[boss.id]?.rotated === true;
     const timerEntry = { endTime, startedAt: now };
     const rotation = config.rotation || {};
-    if (rotation[boss.id] !== undefined && !alreadyRotated) {
+    if (rotation[boss.id] !== undefined && !alreadyRotated && !boss.weeklyRespawns) {
       timerEntry.guild = rotation[boss.id];
       rotation[boss.id] = rotation[boss.id] === 1 ? 2 : 1;
       config.rotation = rotation;
@@ -351,7 +342,7 @@ export async function handleCommand(msg) {
     const alreadyRotated = timers[boss.id]?.rotated === true;
     const timerEntry = { endTime, startedAt: result.killedAt };
     const rotation = config.rotation || {};
-    if (rotation[boss.id] !== undefined && !alreadyRotated) {
+    if (rotation[boss.id] !== undefined && !alreadyRotated && !boss.weeklyRespawns) {
       timerEntry.guild = rotation[boss.id];
       rotation[boss.id] = rotation[boss.id] === 1 ? 2 : 1;
       config.rotation = rotation;
@@ -379,7 +370,7 @@ export async function handleCommand(msg) {
     const alreadyRotated = timers[boss.id]?.rotated === true;
     const timerEntry = { endTime, startedAt: killedAt };
     const rotation = config.rotation || {};
-    if (rotation[boss.id] !== undefined && !alreadyRotated) {
+    if (rotation[boss.id] !== undefined && !alreadyRotated && !boss.weeklyRespawns) {
       timerEntry.guild = rotation[boss.id];
       rotation[boss.id] = rotation[boss.id] === 1 ? 2 : 1;
       config.rotation = rotation;
@@ -622,7 +613,7 @@ export async function handleCommand(msg) {
       const alreadyRotated = timers[boss.id]?.rotated === true;
       const timerEntry = { endTime, startedAt: result.killedAt };
       const rotation = config.rotation || {};
-      if (rotation[boss.id] !== undefined && !alreadyRotated) {
+      if (rotation[boss.id] !== undefined && !alreadyRotated && !boss.weeklyRespawns) {
         timerEntry.guild = rotation[boss.id];
         rotation[boss.id] = rotation[boss.id] === 1 ? 2 : 1;
         config.rotation = rotation;
@@ -648,7 +639,7 @@ export async function handleCommand(msg) {
       const alreadyRotated = timers[boss.id]?.rotated === true;
       const timerEntry = { endTime, startedAt: now };
       const rotation = config.rotation || {};
-      if (rotation[boss.id] !== undefined && !alreadyRotated) {
+      if (rotation[boss.id] !== undefined && !alreadyRotated && !boss.weeklyRespawns) {
         timerEntry.guild = rotation[boss.id];
         rotation[boss.id] = rotation[boss.id] === 1 ? 2 : 1;
         config.rotation = rotation;

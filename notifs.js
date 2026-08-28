@@ -135,7 +135,6 @@ export async function startNotifLoop() {
               config.rotation = rotation;
               await saveConfigFn();
             }
-            timers[id].rotated = true;
             await saveTimersFn();
             continue;
           }
