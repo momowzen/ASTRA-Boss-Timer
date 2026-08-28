@@ -420,7 +420,7 @@ export async function handleCommand(msg) {
     const toRow = (boss) => {
       const next = getNextSpawnFn(boss);
       const timer = timers[boss.id];
-      const guild = timer?.guild ?? rotation[boss.id] ?? null;
+      const guild = rotation[boss.id] ?? timer?.guild ?? null;
       return { spawnMs: next ? next.getTime() : null, name: bossNameFn(boss.id, lang), guild };
     };
     for (const embed of buildEmbeds(schedule.map(toRow), tFn('fixSchedule', lang).toUpperCase(), lang, 0x9B59B6, gn)) {
@@ -448,7 +448,7 @@ export async function handleCommand(msg) {
     bosses.sort((a, b) => a.time - b.time);
     const gn = config.guildNames || {};
     const rotation = config.rotation || {};
-    const embeds = buildEmbeds(bosses.map(({ boss, time }) => ({ spawnMs: time, name: bossNameFn(boss.id, lang), guild: timers[boss.id]?.guild ?? rotation[boss.id] ?? null })), tFn('upcomingField', lang).toUpperCase(), lang, 0x2ECC71, gn);
+    const embeds = buildEmbeds(bosses.map(({ boss, time }) => ({ spawnMs: time, name: bossNameFn(boss.id, lang), guild: rotation[boss.id] ?? timers[boss.id]?.guild ?? null })), tFn('upcomingField', lang).toUpperCase(), lang, 0x2ECC71, gn);
     for (const embed of embeds) await msg.reply({ embeds: [embed] });
     return;
   }
@@ -470,7 +470,7 @@ export async function handleCommand(msg) {
     const rotation = config.rotation || {};
     const groups = { 1: [], 2: [], null: [] };
     for (const { boss, time } of bosses) {
-      const guild = timers[boss.id]?.guild ?? rotation[boss.id] ?? null;
+      const guild = rotation[boss.id] ?? timers[boss.id]?.guild ?? null;
       const key = guild === 1 ? 1 : guild === 2 ? 2 : null;
       groups[key].push({ spawnMs: time, name: bossNameFn(boss.id, lang) });
     }
