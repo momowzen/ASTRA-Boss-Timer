@@ -446,14 +446,13 @@ export async function handleCommand(msg) {
 
   if (cmd === 'ug') {
     const now = Date.now();
-    const cutoff24h = now + 86400000;
     const bosses = [];
     for (const boss of BOSSES_DATA) {
       if (boss.id === 'Test') continue;
       const next = getNextSpawnFn(boss);
       if (next) {
         const time = next.getTime();
-        if (time >= now && time <= cutoff24h) bosses.push({ boss, time });
+        if (time >= now) bosses.push({ boss, time });
       }
     }
     if (bosses.length === 0) return msg.reply(tFn('noActiveBosses', lang));
