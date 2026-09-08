@@ -542,12 +542,32 @@ client.once('clientReady', async () => {
     descriptionLocalizations: { ko: '로테이션용 길드 등록', ja: 'ローテーション用ギルド登録' },
     options: [
       {
-        name: 'guild_names',
-        nameLocalizations: { ko: '길드_이름들', ja: 'ギルド名' },
-        description: 'Guild names (space-separated)',
+        name: 'action',
+        nameLocalizations: { ko: '동작', ja: 'アクション' },
+        description: 'Action to perform',
         type: 3,
         required: false,
-        descriptionLocalizations: { ko: '길드 이름 (공백 구분)', ja: 'ギルド名（スペース区切り）' }
+        descriptionLocalizations: { ko: '수행할 동작', ja: '実行するアクション' },
+        choices: [
+          { name: 'clear', value: 'clear' },
+          { name: 'list', value: 'list' }
+        ]
+      },
+      {
+        name: 'remove_guild',
+        nameLocalizations: { ko: '제거할_길드', ja: '削除ギルド' },
+        description: 'Guild name to remove',
+        type: 3,
+        required: false,
+        descriptionLocalizations: { ko: '제거할 길드 이름', ja: '削除するギルド名' }
+      },
+      {
+        name: 'guild_names',
+        nameLocalizations: { ko: '길드_이름들', ja: 'ギルド名' },
+        description: 'Guild names to add (space-separated)',
+        type: 3,
+        required: false,
+        descriptionLocalizations: { ko: '추가할 길드 이름 (공백 구분)', ja: '追加するギルド名（スペース区切り）' }
       }
     ]
   }, {

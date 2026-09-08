@@ -1046,10 +1046,40 @@ export async function handleInteraction(interaction) {
 
     if (isAddguild) {
       const rot = config.rotation || {};
+      const action = interaction.options.getString('action');
+      const removeGuild = interaction.options.getString('remove_guild');
       const guildNames = interaction.options.getString('guild_names');
 
-      if (!guildNames) {
+      if (action === 'clear') {
+        config.rotation = { ...rot, order: [], activeIdx: 0, bossGuild: {} };
+        config.guildNames = {};
+        await db.collection('config').doc('discordBot').set(config, { merge: false });
+        return interaction.reply({ content: tFn('guildCleared', helpLang), flags: MessageFlags.Ephemeral });
+      }
+
+      if (removeGuild) {
         const order = rot.order || [];
+        const idx = order.indexOf(removeGuild);
+        if (idx === -1) {
+          return interaction.reply({ content: `${tFn('guildNotFound', helpLang)} ${removeGuild}`, flags: MessageFlags.Ephemeral });
+        }
+        order.splice(idx, 1);
+        if (rot.activeIdx >= order.length) rot.activeIdx = 0;
+        if (order.length > 0 && rot.bossGuild) {
+          const fallback = order[0];
+          for (const [bossId, guild] of Object.entries(rot.bossGuild)) {
+            if (guild === removeGuild) rot.bossGuild[bossId] = fallback;
+          }
+        }
+        if (config.guildNames) delete config.guildNames[removeGuild];
+        config.rotation = { ...rot, order };
+        await db.collection('config').doc('discordBot').set(config, { merge: false });
+        return interaction.reply({ content: `${tFn('guildRemoved', helpLang)} ${removeGuild}`, flags: MessageFlags.Ephemeral });
+      }
+
+      const order = rot.order || [];
+
+      if (!guildNames) {
         if (order.length === 0) {
           return interaction.reply({ content: tFn('noGuilds', helpLang), flags: MessageFlags.Ephemeral });
         }
@@ -1064,7 +1094,6 @@ export async function handleInteraction(interaction) {
       }
 
       const names = guildNames.split(/\s+/).filter(Boolean);
-      const order = rot.order || [];
       for (const name of names) {
         if (!order.includes(name)) {
           order.push(name);
