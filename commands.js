@@ -638,16 +638,6 @@ export async function handleCommand(msg) {
         return msg.reply(tFn('rotationNeedsGuilds', lang));
       }
 
-      if (newType && rot.order?.length >= 2) {
-        const currentGuild = rot.order[rot.activeIdx || 0];
-        if (!rot.bossGuild) rot.bossGuild = {};
-        for (const boss of BOSSES_DATA) {
-          if (boss.id !== 'Test' && !rot.bossGuild[boss.id]) {
-            rot.bossGuild[boss.id] = currentGuild;
-          }
-        }
-      }
-
       config.rotation = rot;
       await saveConfigFn();
 
@@ -735,14 +725,6 @@ export async function handleCommand(msg) {
     for (const name of names) {
       if (!order.includes(name)) {
         order.push(name);
-      }
-    }
-
-    const currentGuild = order[rot.activeIdx || 0];
-    if (!rot.bossGuild) rot.bossGuild = {};
-    for (const boss of BOSSES_DATA) {
-      if (boss.id !== 'Test' && !rot.bossGuild[boss.id]) {
-        rot.bossGuild[boss.id] = currentGuild;
       }
     }
 
@@ -1059,16 +1041,6 @@ export async function handleInteraction(interaction) {
           return interaction.reply({ content: tFn('rotationNeedsGuilds', helpLang), flags: MessageFlags.Ephemeral });
         }
 
-        if (newType && rot.order?.length >= 2) {
-          const currentGuild = rot.order[rot.activeIdx || 0];
-          if (!rot.bossGuild) rot.bossGuild = {};
-          for (const boss of BOSSES_DATA) {
-            if (boss.id !== 'Test' && !rot.bossGuild[boss.id]) {
-              rot.bossGuild[boss.id] = currentGuild;
-            }
-          }
-        }
-
         config.rotation = rot;
         await db.collection('config').doc('discordBot').set(config, { merge: false });
 
@@ -1134,14 +1106,6 @@ export async function handleInteraction(interaction) {
       for (const name of names) {
         if (!order.includes(name)) {
           order.push(name);
-        }
-      }
-
-      const currentGuild = order[rot.activeIdx || 0];
-      if (!rot.bossGuild) rot.bossGuild = {};
-      for (const boss of BOSSES_DATA) {
-        if (boss.id !== 'Test' && !rot.bossGuild[boss.id]) {
-          rot.bossGuild[boss.id] = currentGuild;
         }
       }
 
