@@ -518,21 +518,58 @@ client.once('clientReady', async () => {
   }, {
     name: 'rotation',
     nameLocalizations: { ko: '로테이션', ja: 'ローテーション' },
-    description: 'Configure guild rotation type',
-    descriptionLocalizations: { ko: '길드 로테이션 유형 설정', ja: 'ギルドローテーションタイプ設定' },
+    description: 'Configure guild rotation',
+    descriptionLocalizations: { ko: '길드 로테이션 설정', ja: 'ギルドローテーション設定' },
     options: [
       {
         name: 'type',
         nameLocalizations: { ko: '유형', ja: 'タイプ' },
-        description: 'Rotation type',
+        description: 'Set rotation type',
         type: 3,
         required: false,
-        descriptionLocalizations: { ko: '로테이션 유형', ja: 'ローテーションタイプ' },
+        descriptionLocalizations: { ko: '로테이션 유형 설정', ja: 'ローテーションタイプ設定' },
         choices: [
           { name: 'kill', value: 'kill' },
           { name: 'weekly', value: 'weekly' },
           { name: 'none', value: 'none' }
         ]
+      },
+      {
+        name: 'action',
+        nameLocalizations: { ko: '동작', ja: 'アクション' },
+        description: 'Rotation action',
+        type: 3,
+        required: false,
+        descriptionLocalizations: { ko: '로테이션 동작', ja: 'ローテーションアクション' },
+        choices: [
+          { name: 'clear', value: 'clear' },
+          { name: 'status', value: 'status' }
+        ]
+      },
+      {
+        name: 'flip_day',
+        nameLocalizations: { ko: '전환_요일', ja: '切替曜日' },
+        description: 'Weekly flip day (for flipday)',
+        type: 3,
+        required: false,
+        descriptionLocalizations: { ko: '주간 전환 요일', ja: '週間切替曜日' },
+        choices: [
+          { name: 'Sun', value: 'sun' },
+          { name: 'Mon', value: 'mon' },
+          { name: 'Tue', value: 'tue' },
+          { name: 'Wed', value: 'wed' },
+          { name: 'Thu', value: 'thu' },
+          { name: 'Fri', value: 'fri' },
+          { name: 'Sat', value: 'sat' }
+        ]
+      },
+      {
+        name: 'flip_time',
+        nameLocalizations: { ko: '전환_시간', ja: '切替時間' },
+        description: 'Weekly flip time HH:MM (UTC)',
+        type: 3,
+        required: false,
+        descriptionLocalizations: { ko: '주간 전환 시간 HH:MM (UTC)', ja: '週間切替時間 HH:MM (UTC)' }
       }
     ]
   }, {

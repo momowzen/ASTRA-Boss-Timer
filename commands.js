@@ -972,8 +972,17 @@ export async function handleInteraction(interaction) {
     if (isRotation) {
       const rot = config.rotation || {};
       const type = interaction.options.getString('type');
+      const action = interaction.options.getString('action');
+      const flipDay = interaction.options.getString('flip_day');
+      const flipTime = interaction.options.getString('flip_time');
 
-      if (!type) {
+      if (action === 'clear') {
+        config.rotation = { type: null, order: [], activeIdx: 0, bossGuild: {}, lastRotatedAt: 0, flipDay: null, flipHour: null, flipMinute: null };
+        await db.collection('config').doc('discordBot').set(config, { merge: false });
+        return interaction.reply({ content: tFn('rotationCleared', helpLang), flags: MessageFlags.Ephemeral });
+      }
+
+      if (action === 'status' || (!type && !flipDay)) {
         const lines = [tFn('rotationTitle', helpLang) + ':'];
         lines.push(`${tFn('rotationTypeSet', helpLang)} ${rot.type ? rot.type.toUpperCase() : tFn('rotationTypeNone', helpLang)}`);
 
@@ -1012,36 +1021,64 @@ export async function handleInteraction(interaction) {
         return interaction.reply({ content: lines.join('\n').slice(0, 2000), flags: MessageFlags.Ephemeral });
       }
 
-      const newType = type === 'none' ? null : type;
-      rot.type = newType;
-
-      if (newType === 'weekly' && rot.flipDay == null) {
-        rot.flipDay = 0;
-        rot.flipHour = 0;
-        rot.flipMinute = 0;
+      if (flipDay && flipTime) {
+        const dayMap = { sun: 0, mon: 1, tue: 2, wed: 3, thu: 4, fri: 5, sat: 6 };
+        const day = dayMap[flipDay.toLowerCase()];
+        if (day === undefined) {
+          return interaction.reply({ content: 'Invalid day.', flags: MessageFlags.Ephemeral });
+        }
+        const timeMatch = flipTime.match(/^(\d{1,2}):(\d{2})$/);
+        if (!timeMatch) {
+          return interaction.reply({ content: 'Invalid time format. Use HH:MM.', flags: MessageFlags.Ephemeral });
+        }
+        const hour = parseInt(timeMatch[1]);
+        const minute = parseInt(timeMatch[2]);
+        if (hour < 0 || hour > 23 || minute < 0 || minute > 59) {
+          return interaction.reply({ content: 'Invalid time. Hour: 0-23, Minute: 0-59.', flags: MessageFlags.Ephemeral });
+        }
+        rot.flipDay = day;
+        rot.flipHour = hour;
+        rot.flipMinute = minute;
+        config.rotation = rot;
+        await db.collection('config').doc('discordBot').set(config, { merge: false });
+        const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+        return interaction.reply({ content: `${tFn('rotationFlipSet', helpLang)} ${days[day]} ${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')} UTC`, flags: MessageFlags.Ephemeral });
       }
 
-      if (newType && (!rot.order || rot.order.length < 2)) {
-        return interaction.reply({ content: tFn('rotationNeedsGuilds', helpLang), flags: MessageFlags.Ephemeral });
-      }
+      if (type) {
+        const newType = type === 'none' ? null : type;
+        rot.type = newType;
 
-      if (newType && rot.order?.length >= 2) {
-        const currentGuild = rot.order[rot.activeIdx || 0];
-        if (!rot.bossGuild) rot.bossGuild = {};
-        for (const boss of BOSSES_DATA) {
-          if (boss.id !== 'Test' && !rot.bossGuild[boss.id]) {
-            rot.bossGuild[boss.id] = currentGuild;
+        if (newType === 'weekly' && rot.flipDay == null) {
+          rot.flipDay = 0;
+          rot.flipHour = 0;
+          rot.flipMinute = 0;
+        }
+
+        if (newType && (!rot.order || rot.order.length < 2)) {
+          return interaction.reply({ content: tFn('rotationNeedsGuilds', helpLang), flags: MessageFlags.Ephemeral });
+        }
+
+        if (newType && rot.order?.length >= 2) {
+          const currentGuild = rot.order[rot.activeIdx || 0];
+          if (!rot.bossGuild) rot.bossGuild = {};
+          for (const boss of BOSSES_DATA) {
+            if (boss.id !== 'Test' && !rot.bossGuild[boss.id]) {
+              rot.bossGuild[boss.id] = currentGuild;
+            }
           }
         }
+
+        config.rotation = rot;
+        await db.collection('config').doc('discordBot').set(config, { merge: false });
+
+        const typeName = newType === 'kill' ? tFn('rotationTypeKill', helpLang)
+          : newType === 'weekly' ? tFn('rotationTypeWeekly', helpLang)
+          : tFn('rotationTypeNone', helpLang);
+        return interaction.reply({ content: `${tFn('rotationTypeSet', helpLang)} ${typeName}`, flags: MessageFlags.Ephemeral });
       }
 
-      config.rotation = rot;
-      await db.collection('config').doc('discordBot').set(config, { merge: false });
-
-      const typeName = newType === 'kill' ? tFn('rotationTypeKill', helpLang)
-        : newType === 'weekly' ? tFn('rotationTypeWeekly', helpLang)
-        : tFn('rotationTypeNone', helpLang);
-      return interaction.reply({ content: `${tFn('rotationTypeSet', helpLang)} ${typeName}`, flags: MessageFlags.Ephemeral });
+      return interaction.reply({ content: 'Please select an option. Use `/rotation type` to set type, `/rotation action:clear` to clear, or `/rotation flip_day flip_time` to set weekly schedule.', flags: MessageFlags.Ephemeral });
     }
 
     if (isAddguild) {
