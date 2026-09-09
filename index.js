@@ -180,7 +180,7 @@ function detectLang(content) {
 
 // ─── Config migration ──────────────────────────
 function migrateConfig(data) {
-  if (data.rotation && typeof data.rotation === 'object' && !data.rotation.type) {
+  if (data.rotation && typeof data.rotation === 'object' && !data.rotation.type && !data.rotation.order) {
     const oldRotation = data.rotation;
     const oldGuildNames = data.guildNames || {};
 
