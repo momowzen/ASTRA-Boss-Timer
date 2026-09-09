@@ -579,8 +579,7 @@ export async function handleCommand(msg) {
     const rot = config.rotation || {};
 
     if (!args) {
-      const lines = [tFn('rotationTitle', lang) + ':'];
-      lines.push(`${tFn('rotationTypeSet', lang)} ${rot.type ? rot.type.toUpperCase() : tFn('rotationTypeNone', lang)}`);
+      const lines = [`${tFn('rotationTitle', lang)}: ${rot.type ? rot.type.toUpperCase() : tFn('rotationTypeNone', lang)}`];
 
       if (rot.type && rot.order?.length) {
         if (rot.type === 'weekly' && rot.flipDay != null) {
@@ -963,8 +962,7 @@ export async function handleInteraction(interaction) {
       }
 
       if (action === 'status' || (!type && !flipDay)) {
-        const lines = [tFn('rotationTitle', helpLang) + ':'];
-        lines.push(`${tFn('rotationTypeSet', helpLang)} ${rot.type ? rot.type.toUpperCase() : tFn('rotationTypeNone', helpLang)}`);
+        const lines = [`${tFn('rotationTitle', helpLang)}: ${rot.type ? rot.type.toUpperCase() : tFn('rotationTypeNone', helpLang)}`];
 
         if (rot.type && rot.order?.length) {
           if (rot.type === 'weekly' && rot.flipDay != null) {
