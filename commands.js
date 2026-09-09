@@ -583,9 +583,6 @@ export async function handleCommand(msg) {
       lines.push(`${tFn('rotationTypeSet', lang)} ${rot.type ? rot.type.toUpperCase() : tFn('rotationTypeNone', lang)}`);
 
       if (rot.type && rot.order?.length) {
-        const currentGuild = rot.order[rot.activeIdx || 0];
-        lines.push(`${tFn('rotationCurrentGuild', lang)} ${getGuildDisplayName(currentGuild)}`);
-
         if (rot.type === 'weekly' && rot.flipDay != null) {
           const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
           const dayName = days[rot.flipDay] || rot.flipDay;
@@ -596,8 +593,7 @@ export async function handleCommand(msg) {
 
         lines.push(`\n${tFn('guildListTitle', lang)}:`);
         for (let i = 0; i < rot.order.length; i++) {
-          const marker = i === (rot.activeIdx || 0) ? ' ← ' + tFn('rotationCurrentGuild', lang) : '';
-          lines.push(`${i + 1}. ${getGuildDisplayName(rot.order[i])}${marker}`);
+          lines.push(`${i + 1}. ${getGuildDisplayName(rot.order[i])}`);
         }
       }
 
@@ -971,9 +967,6 @@ export async function handleInteraction(interaction) {
         lines.push(`${tFn('rotationTypeSet', helpLang)} ${rot.type ? rot.type.toUpperCase() : tFn('rotationTypeNone', helpLang)}`);
 
         if (rot.type && rot.order?.length) {
-          const currentGuild = rot.order[rot.activeIdx || 0];
-          lines.push(`${tFn('rotationCurrentGuild', helpLang)} ${getGuildDisplayName(currentGuild)}`);
-
           if (rot.type === 'weekly' && rot.flipDay != null) {
             const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
             const dayName = days[rot.flipDay] || rot.flipDay;
@@ -984,8 +977,7 @@ export async function handleInteraction(interaction) {
 
           lines.push(`\n${tFn('guildListTitle', helpLang)}:`);
           for (let i = 0; i < rot.order.length; i++) {
-            const marker = i === (rot.activeIdx || 0) ? ' ← ' + tFn('rotationCurrentGuild', helpLang) : '';
-            lines.push(`${i + 1}. ${getGuildDisplayName(rot.order[i])}${marker}`);
+            lines.push(`${i + 1}. ${getGuildDisplayName(rot.order[i])}`);
           }
         }
 
