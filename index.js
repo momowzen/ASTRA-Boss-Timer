@@ -442,21 +442,21 @@ client.once('clientReady', async () => {
       if (rot.flipDay == null || rot.flipHour == null || rot.flipMinute == null) return;
 
       const now = Date.now();
-      const utcNow = new Date(now);
-      const utcDay = utcNow.getUTCDay();
-      const utcHour = utcNow.getUTCHours();
-      const utcMinute = utcNow.getUTCMinutes();
+      const jstNow = new Date(now + TZ_OFFSET);
+      const jstDay = jstNow.getUTCDay();
+      const jstHour = jstNow.getUTCHours();
+      const jstMinute = jstNow.getUTCMinutes();
 
-      const nowSeconds = utcHour * 3600 + utcMinute * 60 + utcNow.getUTCSeconds();
+      const nowSeconds = jstHour * 3600 + jstMinute * 60 + jstNow.getUTCSeconds();
       const flipSeconds = rot.flipHour * 3600 + rot.flipMinute * 60;
 
-      let daysSinceFlipDay = (utcDay - rot.flipDay + 7) % 7;
+      let daysSinceFlipDay = (jstDay - rot.flipDay + 7) % 7;
 
       if (daysSinceFlipDay === 0) {
         const diff = nowSeconds - flipSeconds;
         if (diff >= 0 && diff < 900) {
           const lastRotatedAt = rot.lastRotatedAt || 0;
-          const flipTimestamp = Date.UTC(utcNow.getUTCFullYear(), utcNow.getUTCMonth(), utcNow.getUTCDate(), rot.flipHour, rot.flipMinute);
+          const flipTimestamp = Date.UTC(jstNow.getUTCFullYear(), jstNow.getUTCMonth(), jstNow.getUTCDate(), rot.flipHour, rot.flipMinute) - TZ_OFFSET;
 
           if (lastRotatedAt < flipTimestamp) {
             rot.lastRotatedAt = now;
@@ -566,10 +566,10 @@ client.once('clientReady', async () => {
       {
         name: 'flip_time',
         nameLocalizations: { ko: '전환_시간', ja: '切替時間' },
-        description: 'Weekly flip time HH:MM (UTC)',
+        description: 'Weekly flip time HH:MM (JST)',
         type: 3,
         required: false,
-        descriptionLocalizations: { ko: '주간 전환 시간 HH:MM (UTC)', ja: '週間切替時間 HH:MM (UTC)' }
+        descriptionLocalizations: { ko: '주간 전환 시간 HH:MM (JST)', ja: '週間切替時間 HH:MM (JST)' }
       }
     ]
   }, {

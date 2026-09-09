@@ -215,7 +215,7 @@ const HELP_EN = [
   '**Guild Rotation**',
   '`/rotation type:kill` → Enable per-kill rotation (flips on each kill/set/miss).',
   '`/rotation type:weekly` → Enable weekly rotation (flips on schedule).',
-  '`/rotation flip_day:<day> flip_time:<HH:MM>` → Set weekly flip schedule (UTC).',
+  '`/rotation flip_day:<day> flip_time:<HH:MM>` → Set weekly flip schedule (JST).',
   '`/rotation type:none` → Disable rotation.',
   '`/rotation action:clear` → Clear all rotation data.',
   '`/rotation action:status` → Show current rotation status.',
@@ -273,7 +273,7 @@ const HELP_KO = [
   '**길드 로테이션**',
   '`/로테이션 type:kill` → 킬별 로테이션 활성화 (처치/설정/놓침 시 전환).',
   '`/로테이션 type:weekly` → 주간 로테이션 활성화 (스케줄에 따라 전환).',
-  '`/로테이션 flip_day:<요일> flip_time:<HH:MM>` → 주간 전환 일정 설정 (UTC).',
+  '`/로테이션 flip_day:<요일> flip_time:<HH:MM>` → 주간 전환 일정 설정 (JST).',
   '`/로테이션 type:none` → 로테이션 비활성화.',
   '`/로테이션 action:clear` → 모든 로테이션 데이터 삭제.',
   '`/로테이션 action:status` → 현재 로테이션 상태 표시.',
@@ -331,7 +331,7 @@ const HELP_JA = [
   '**ギルドローテーション**',
   '`/ローテーション type:kill` → キル毎ローテーション有効化（討伐/設定/逃しで切替）。',
   '`/ローテーション type:weekly` → 週間ローテーション有効化（スケジュールで切替）。',
-  '`/ローテーション flip_day:<曜日> flip_time:<HH:MM>` → 週間切替スケジュール設定（UTC）。',
+  '`/ローテーション flip_day:<曜日> flip_time:<HH:MM>` → 週間切替スケジュール設定（JST）。',
   '`/ローテーション type:none` → ローテーション無効化。',
   '`/ローテーション action:clear` → ローテーションデータをすべてクリア。',
   '`/ローテーション action:status` → 現在のローテーション状態を表示。',
@@ -595,7 +595,7 @@ export async function handleCommand(msg) {
           const dayName = days[rot.flipDay] || rot.flipDay;
           const hh = String(rot.flipHour || 0).padStart(2, '0');
           const mm = String(rot.flipMinute || 0).padStart(2, '0');
-          lines.push(`${tFn('weeklyFlipSchedule', lang)} ${dayName} ${hh}:${mm} UTC`);
+          lines.push(`${tFn('weeklyFlipSchedule', lang)} ${dayName} ${hh}:${mm} JST`);
         }
 
         lines.push(`\n${tFn('guildListTitle', lang)}:`);
@@ -674,7 +674,7 @@ export async function handleCommand(msg) {
       await saveConfigFn();
 
       const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-      return msg.reply(`${tFn('rotationFlipSet', lang)} ${days[day]} ${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')} UTC`);
+      return msg.reply(`${tFn('rotationFlipSet', lang)} ${days[day]} ${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')} JST`);
     }
 
     return msg.reply(`Usage:\n\`rotation kill\` — Per-kill rotation\n\`rotation weekly\` — Weekly rotation\n\`rotation flipday <day> <HH:MM>\` — Set weekly flip schedule\n\`rotation none\` — Disable rotation\n\`rotation clear\` — Clear all rotation data`);
@@ -983,7 +983,7 @@ export async function handleInteraction(interaction) {
             const dayName = days[rot.flipDay] || rot.flipDay;
             const hh = String(rot.flipHour || 0).padStart(2, '0');
             const mm = String(rot.flipMinute || 0).padStart(2, '0');
-            lines.push(`${tFn('weeklyFlipSchedule', helpLang)} ${dayName} ${hh}:${mm} UTC`);
+            lines.push(`${tFn('weeklyFlipSchedule', helpLang)} ${dayName} ${hh}:${mm} JST`);
           }
 
           lines.push(`\n${tFn('guildListTitle', helpLang)}:`);
@@ -1030,7 +1030,7 @@ export async function handleInteraction(interaction) {
         config.rotation = rot;
         await db.collection('config').doc('discordBot').set(config, { merge: false });
         const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-        return interaction.reply({ content: `${tFn('rotationFlipSet', helpLang)} ${days[day]} ${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')} UTC`, flags: MessageFlags.Ephemeral });
+        return interaction.reply({ content: `${tFn('rotationFlipSet', helpLang)} ${days[day]} ${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')} JST`, flags: MessageFlags.Ephemeral });
       }
 
       if (type) {
