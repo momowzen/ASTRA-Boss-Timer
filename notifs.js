@@ -153,6 +153,7 @@ export async function startNotifLoop() {
 
         if (remainingMs <= 5 * 60 * 1000 && remainingMs > 0 && !sentSoonNotifs.has(cycleKey)) {
           sentSoonNotifs.add(cycleKey);
+          console.log(`[NOTIF] ${id} spawning soon cycleKey=${cycleKey}`);
           const notifId = `${id}_soon_${info.endTime}`;
           const prefix = config.pingHere ? '\n@here' : '';
           const guild = info.guild || getCurrentGuild(id);
@@ -176,6 +177,7 @@ export async function startNotifLoop() {
         if (remainingMs <= 0 && remainingMs > -300000 && !sentSpawnedNotifs.has(cycleKey)) {
           if (timers[id] !== info) continue;
           sentSpawnedNotifs.add(cycleKey);
+          console.log(`[SPAWNED] ${id} cycleKey=${cycleKey}`);
           speakSpawnedFn(bossNameFn(id, config.voiceLang));
 
           const guild = info.guild || getCurrentGuild(id);
