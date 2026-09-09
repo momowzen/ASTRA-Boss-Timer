@@ -518,7 +518,7 @@ export async function handleCommand(msg) {
     for (const [gName, entries] of Object.entries(groups)) {
       entries.sort((a, b) => a.spawnMs - b.spawnMs);
       if (entries.length > 0) {
-        const displayName = gName ? getGuildDisplayName(gName) : tFn('unassigned', lang);
+        const displayName = gName && gName !== 'null' ? getGuildDisplayName(gName) : tFn('unassigned', lang);
         for (const embed of buildGuildEmbeds(entries, displayName, 0x2ECC71)) {
           await msg.reply({ embeds: [embed] });
         }
