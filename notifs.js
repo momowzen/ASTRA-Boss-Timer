@@ -146,6 +146,7 @@ export async function startNotifLoop() {
           const spokeKey = `${id}_${info.endTime}_${minutesLeft}`;
           if (!ttsSpokenMinutes.has(spokeKey)) {
             ttsSpokenMinutes.set(spokeKey, true);
+            console.log(`[TTS] ${id} minute ${minutesLeft} spokeKey=${spokeKey}`);
             speakFromNotifLoopFn(bossNameFn(id, config.voiceLang), minutesLeft);
           }
         }
