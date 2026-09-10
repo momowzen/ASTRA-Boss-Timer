@@ -70,9 +70,13 @@ async function handleRotationOnKill(bossId) {
   if (!rot.bossGuild) rot.bossGuild = {};
 
   const currentGuild = rot.order[rot.activeIdx || 0];
-  rot.bossGuild[bossId] = currentGuild;
 
-  if (rot.type === 'kill') {
+  if (rot.type === 'weekly') {
+    if (!rot.bossGuild[bossId]) {
+      rot.bossGuild[bossId] = currentGuild;
+    }
+  } else {
+    rot.bossGuild[bossId] = currentGuild;
     cycleGuild();
   }
   await saveConfigFn();
