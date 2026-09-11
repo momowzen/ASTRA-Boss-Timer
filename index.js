@@ -454,7 +454,7 @@ client.once('clientReady', async () => {
 
       if (daysSinceFlipDay === 0) {
         const diff = nowSeconds - flipSeconds;
-        if (diff >= 0 && diff < 900) {
+        if (diff >= 0 && diff < 1800) {
           const lastRotatedAt = rot.lastRotatedAt || 0;
           const flipTimestamp = Date.UTC(jstNow.getUTCFullYear(), jstNow.getUTCMonth(), jstNow.getUTCDate(), rot.flipHour, rot.flipMinute) - TZ_OFFSET;
 

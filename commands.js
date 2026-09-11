@@ -196,7 +196,7 @@ const HELP_EN = [
   '> `Venatus 0721 1430`',
   '',
   '**Timer Control**',
-  '`miss <boss>` → Mark a boss as missed. Kill time = spawn time + 5 min.',
+  '`miss <boss>` → Mark a boss as missed. Kill time = spawn time + 2 min.',
   '`clear <boss>` → Remove the boss timer.',
   '',
   '> `miss Venatus`',
@@ -254,7 +254,7 @@ const HELP_KO = [
   '> `베나투스 0721 1430`',
   '',
   '**타이머 관리**',
-  '`놓침 <보스명>` → 보스를 놓친 것으로 기록합니다. 처치 시간 = 출현 시간 + 5분.',
+  '`놓침 <보스명>` → 보스를 놓친 것으로 기록합니다. 처치 시간 = 출현 시간 + 2분.',
   '`초기화 <보스명>` → 보스 타이머를 삭제합니다.',
   '',
   '> `놓침 베나투스`',
@@ -312,7 +312,7 @@ const HELP_JA = [
   '> `ベナトゥス 0721 1430`',
   '',
   '**タイマー管理**',
-  '`逃し <ボス名>` → ボスを取り逃したとして記録します。討伐時間 = 出現時間 + 5分。',
+  '`逃し <ボス名>` → ボスを取り逃したとして記録します。討伐時間 = 出現時間 + 2分。',
   '`解除 <ボス名>` → ボスタイマーを削除します。',
   '',
   '> `逃し ベナトゥス`',
@@ -374,7 +374,7 @@ export async function handleCommand(msg) {
     const boss = findBossFn(query, lang);
     if (!boss) return msg.reply(`${tFn('bossNotFound', lang)} ${query}`);
     const now = Date.now();
-    const endTime = boss.weeklyRespawns ? getNextSpawnFn(boss)?.getTime() : now + boss.respawn * 1000;
+    const endTime = boss.weeklyRespawns ? (getNextSpawnFn(boss)?.getTime() || now + boss.respawn * 1000) : now + boss.respawn * 1000;
     await handleRotationOnKill(boss.id);
     const timerEntry = { endTime, startedAt: now, guild: getCurrentGuild(boss.id) };
     timers[boss.id] = timerEntry;
@@ -419,7 +419,7 @@ export async function handleCommand(msg) {
     if (!timer || !timer.endTime) return msg.reply(`${tFn('noTimer', lang)} ${bossNameFn(boss.id, lang)}`);
     const now = Date.now();
     const killedAt = timer.endTime + 2 * 60 * 1000;
-    const endTime = boss.weeklyRespawns ? getNextSpawnFn(boss)?.getTime() : killedAt + boss.respawn * 1000;
+    const endTime = boss.weeklyRespawns ? (getNextSpawnFn(boss)?.getTime() || killedAt + boss.respawn * 1000) : killedAt + boss.respawn * 1000;
     await handleRotationOnKill(boss.id);
     const timerEntry = { endTime, startedAt: killedAt, guild: getCurrentGuild(boss.id) };
     timers[boss.id] = timerEntry;
@@ -769,6 +769,10 @@ export async function handleCommand(msg) {
   }
   }
 
+  if (resolved && !(resolved.lang === lang || resolved.lang === 'en' || parts[0].toLowerCase() === CMD_ALIAS[resolved.id]?.en)) {
+    return msg.reply(`${tFn('helpTitle', lang)}\n${tFn('helpDesc', lang)}`);
+  }
+
   if (!resolved && parts.length >= 2 && !parts[0].startsWith('/')) {
     const parsed = parseBossTimeArgs(parts);
     if (parsed) {
@@ -799,7 +803,7 @@ export async function handleCommand(msg) {
       const boss = findBossFn(query, lang);
       if (!boss) return msg.reply(`${tFn('bossNotFound', lang)} ${query}`);
       const now = Date.now();
-      const endTime = boss.weeklyRespawns ? getNextSpawnFn(boss)?.getTime() : now + boss.respawn * 1000;
+      const endTime = boss.weeklyRespawns ? (getNextSpawnFn(boss)?.getTime() || now + boss.respawn * 1000) : now + boss.respawn * 1000;
       await handleRotationOnKill(boss.id);
       const timerEntry = { endTime, startedAt: now, guild: getCurrentGuild(boss.id) };
       timers[boss.id] = timerEntry;
@@ -1161,7 +1165,7 @@ export async function handleInteraction(interaction) {
 
   if (action === 'markdead') {
     interaction.deferUpdate().catch(() => {});
-    const endTime = now + boss.respawn * 1000;
+    const endTime = boss.weeklyRespawns ? getNextSpawnFn(boss)?.getTime() : now + boss.respawn * 1000;
     if (timers[boss.id] && Math.abs(timers[boss.id].endTime - endTime) < 2000) return;
     await handleRotationOnKill(boss.id);
     const timerEntry = { endTime, startedAt: now, guild: getCurrentGuild(boss.id) };
@@ -1178,8 +1182,9 @@ export async function handleInteraction(interaction) {
   if (action === 'missed') {
     interaction.deferUpdate().catch(() => {});
     const timer = timers[boss.id];
-    const killedAt = timer?.endTime + 2 * 60 * 1000 || now;
-    const endTime = killedAt + boss.respawn * 1000;
+    if (!timer || !timer.endTime) return;
+    const killedAt = (timer.endTime || now) + 2 * 60 * 1000;
+    const endTime = boss.weeklyRespawns ? getNextSpawnFn(boss)?.getTime() : killedAt + boss.respawn * 1000;
     if (timers[boss.id] && timers[boss.id].endTime && Math.abs(timers[boss.id].endTime - endTime) < 2000) return;
     await handleRotationOnKill(boss.id);
     const timerEntry = { endTime, startedAt: killedAt, guild: getCurrentGuild(boss.id) };

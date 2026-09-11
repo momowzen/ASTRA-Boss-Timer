@@ -24,6 +24,7 @@ let voiceConnection = null;
 let speakQueue = [];
 let isSpeaking = false;
 let idleTimer = null;
+let connectingPromise = null;
 let sentWorldBossSpawned = new Set();
 let ttsWorldBossMinutes = new Map();
 
@@ -54,30 +55,39 @@ export function disconnectVoice() {
 export async function connectVoice() {
   const voiceId = config.voice;
   if (!voiceId || voiceConnection) return;
-  try {
-    const channel = await client.channels.fetch(voiceId);
-    if (!channel?.isVoiceBased()) return;
-    const guild = channel.guild;
-    audioPlayer = createAudioPlayer();
-    audioPlayer.on('error', e => console.error('[VOICE] Error:', e.message));
-    audioPlayer.on(AudioPlayerStatus.Idle, () => {
-      isSpeaking = false;
-      if (speakQueue.length) {
-        speak(speakQueue.shift());
-      } else {
-        idleTimer = setTimeout(() => disconnectVoice(), 300000);
-      }
-    });
-    voiceConnection = joinVoiceChannel({
-      channelId: voiceId, guildId: guild.id,
-      adapterCreator: guild.voiceAdapterCreator
-    });
-    voiceConnection.on(VoiceConnectionStatus.Disconnected, async () => {
-      try { await Promise.race([entersState(voiceConnection, VoiceConnectionStatus.Signalling, 5000), entersState(voiceConnection, VoiceConnectionStatus.Connecting, 5000)]); }
-      catch { disconnectVoice(); }
-    });
-    voiceConnection.subscribe(audioPlayer);
-  } catch (e) { console.error('[VOICE] Connect error:', e.message); }
+  if (connectingPromise) return connectingPromise;
+  connectingPromise = (async () => {
+    try {
+      const channel = await client.channels.fetch(voiceId);
+      if (!channel?.isVoiceBased()) return;
+      const guild = channel.guild;
+      audioPlayer = createAudioPlayer();
+      audioPlayer.on('error', e => {
+        console.error('[VOICE] Error:', e.message);
+        isSpeaking = false;
+        if (speakQueue.length) speak(speakQueue.shift());
+      });
+      audioPlayer.on(AudioPlayerStatus.Idle, () => {
+        isSpeaking = false;
+        if (speakQueue.length) {
+          speak(speakQueue.shift());
+        } else {
+          idleTimer = setTimeout(() => disconnectVoice(), 300000);
+        }
+      });
+      voiceConnection = joinVoiceChannel({
+        channelId: voiceId, guildId: guild.id,
+        adapterCreator: guild.voiceAdapterCreator
+      });
+      voiceConnection.on(VoiceConnectionStatus.Disconnected, async () => {
+        try { await Promise.race([entersState(voiceConnection, VoiceConnectionStatus.Signalling, 5000), entersState(voiceConnection, VoiceConnectionStatus.Connecting, 5000)]); }
+        catch { disconnectVoice(); }
+      });
+      voiceConnection.subscribe(audioPlayer);
+    } catch (e) { console.error('[VOICE] Connect error:', e.message); }
+    connectingPromise = null;
+  })();
+  return connectingPromise;
 }
 
 export async function speak(text) {

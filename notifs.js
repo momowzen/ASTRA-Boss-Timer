@@ -8,6 +8,7 @@ let sentSoonNotifs;
 let sentSpawnedNotifs;
 let ttsSpokenMinutes;
 let notifInterval;
+let cleanupInterval;
 let speakFn, speakFromNotifLoopFn, speakSpawnedFn;
 
 export function initNotifs(deps) {
@@ -118,6 +119,7 @@ export function resetBossCycleFn(bossId) {
 
 export async function startNotifLoop() {
   if (notifInterval) clearInterval(notifInterval);
+  if (cleanupInterval) clearInterval(cleanupInterval);
   notifInterval = setInterval(async () => {
     try {
       const now = Date.now();
@@ -197,7 +199,7 @@ export async function startNotifLoop() {
               `**[**\`SPAWNED\`**] ${bossNameFn(id, 'en')}**${guildLine}`,
               `**[**\`출현\`**] ${bossNameFn(id, 'ko')}**${guild ? `\n${tFn('assignedTo', 'ko')}: ${guild}` : ''}`,
               `**[**\`出現\`**] ${bossNameFn(id, 'ja')}**${guild ? `\n${tFn('assignedTo', 'ja')}: ${guild}` : ''}`,
-              false
+              id
             );
           }
           notifMessageCache.delete(id);
@@ -208,7 +210,7 @@ export async function startNotifLoop() {
       console.error('Notif loop error:', e);
     }
   }, 3000);
-  setInterval(() => {
+  cleanupInterval = setInterval(() => {
     const now = Date.now();
     for (const set of [sentSoonNotifs, sentSpawnedNotifs]) {
       for (const key of set) {
@@ -216,6 +218,10 @@ export async function startNotifLoop() {
         if (ts && ts < now - 300000) set.delete(key);
       }
     }
-    ttsSpokenMinutes.clear();
+    for (const [key] of ttsSpokenMinutes) {
+      const parts = key.split('_');
+      const ts = parseInt(parts[1]);
+      if (ts && ts < now - 3600000) ttsSpokenMinutes.delete(key);
+    }
   }, 3600000);
 }
