@@ -156,7 +156,7 @@ export async function startNotifLoop() {
           console.log(`[NOTIF] ${id} spawning soon cycleKey=${cycleKey}`);
           const notifId = `${id}_soon_${info.endTime}`;
           const prefix = config.pingHere ? '\n@here' : '';
-          const guild = info.guild || getCurrentGuild(id);
+          const guild = getCurrentGuild(id);
           let guildLine = '';
           if (guild != null) {
             guildLine = `\n${tFn('assignedTo', 'en')}: ${guild}`;
@@ -180,7 +180,7 @@ export async function startNotifLoop() {
           console.log(`[SPAWNED] ${id} cycleKey=${cycleKey}`);
           speakSpawnedFn(bossNameFn(id, config.voiceLang));
 
-          const guild = info.guild || getCurrentGuild(id);
+          const guild = getCurrentGuild(id);
           let guildLine = '';
           if (guild != null) {
             guildLine = `\n${tFn('assignedTo', 'en')}: ${guild}`;
