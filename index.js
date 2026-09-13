@@ -472,6 +472,21 @@ client.once('clientReady', async () => {
             config.rotation = rot;
             await saveConfig();
             console.log(`[ROTATION] Weekly flip: now at guild "${newGuild}" (idx ${rot.activeIdx})`);
+
+            const grouped = {};
+            for (const [bossId, guild] of Object.entries(rot.bossGuild || {})) {
+              if (!grouped[guild]) grouped[guild] = [];
+              grouped[guild].push(bossId);
+            }
+            const buildLine = (lang) => {
+              const lines = [`**[**\`ROTATION\`**] ${t('rotationFlipComplete', lang)}**`];
+              for (const guild of rot.order) {
+                const bosses = (grouped[guild] || []).map(id => bossName(id, lang));
+                if (bosses.length) lines.push(`**${guild}**: ${bosses.join(', ')}`);
+              }
+              return lines.join('\n');
+            };
+            await sendAllNotifsFn(buildLine('en'), buildLine('ko'), buildLine('ja'));
           }
         }
       }
