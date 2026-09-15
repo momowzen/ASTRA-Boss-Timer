@@ -465,7 +465,8 @@ client.once('clientReady', async () => {
 
             if (rot.bossGuild) {
               for (const bossId of Object.keys(rot.bossGuild)) {
-                rot.bossGuild[bossId] = newGuild;
+                const curIdx = rot.order.indexOf(rot.bossGuild[bossId]);
+                rot.bossGuild[bossId] = curIdx === -1 ? newGuild : rot.order[(curIdx + 1) % rot.order.length];
               }
             }
 
