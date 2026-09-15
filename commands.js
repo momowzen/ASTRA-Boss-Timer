@@ -373,6 +373,7 @@ export async function handleCommand(msg) {
     const query = parts.slice(1).join(' ');
     const boss = findBossFn(query, lang);
     if (!boss) return msg.reply(`${tFn('bossNotFound', lang)} ${query}`);
+    if (boss.weeklyRespawns) return msg.reply(`${bossNameFn(boss.id, lang)}: ${tFn('scheduleOnly', lang)}`);
     const now = Date.now();
     const endTime = boss.weeklyRespawns ? (getNextSpawnFn(boss)?.getTime() || now + boss.respawn * 1000) : now + boss.respawn * 1000;
     await handleRotationOnKill(boss.id);
@@ -392,6 +393,7 @@ export async function handleCommand(msg) {
     if (!parsed) return msg.reply(tFn('invalidTime', lang));
     const boss = findBossFn(parsed.name, lang);
     if (!boss) return msg.reply(`${tFn('bossNotFound', lang)} ${parsed.name}`);
+    if (boss.weeklyRespawns) return msg.reply(`${bossNameFn(boss.id, lang)}: ${tFn('scheduleOnly', lang)}`);
     const result = applySet(boss, parsed.date, parsed.time, msg.author, lang);
     if (typeof result === 'string') return msg.reply(result);
     let endTime = result.endTime;
@@ -415,6 +417,7 @@ export async function handleCommand(msg) {
     const query = parts.slice(1).join(' ');
     const boss = findBossFn(query, lang);
     if (!boss) return msg.reply(`${tFn('bossNotFound', lang)} ${query}`);
+    if (boss.weeklyRespawns) return msg.reply(`${bossNameFn(boss.id, lang)}: ${tFn('scheduleOnly', lang)}`);
     const timer = timers[boss.id];
     if (!timer || !timer.endTime) return msg.reply(`${tFn('noTimer', lang)} ${bossNameFn(boss.id, lang)}`);
     const now = Date.now();
@@ -778,6 +781,7 @@ export async function handleCommand(msg) {
     if (parsed) {
       const boss = findBossFn(parsed.name, lang);
       if (!boss) return msg.reply(`${tFn('bossNotFound', lang)} ${parsed.name}`);
+      if (boss.weeklyRespawns) return msg.reply(`${bossNameFn(boss.id, lang)}: ${tFn('scheduleOnly', lang)}`);
       const result = applySet(boss, parsed.date, parsed.time, msg.author, lang);
       if (typeof result === 'string') return msg.reply(result);
       let endTime = result.endTime;
@@ -802,6 +806,7 @@ export async function handleCommand(msg) {
       const query = parts.slice(0, -1).join(' ');
       const boss = findBossFn(query, lang);
       if (!boss) return msg.reply(`${tFn('bossNotFound', lang)} ${query}`);
+      if (boss.weeklyRespawns) return msg.reply(`${bossNameFn(boss.id, lang)}: ${tFn('scheduleOnly', lang)}`);
       const now = Date.now();
       const endTime = boss.weeklyRespawns ? (getNextSpawnFn(boss)?.getTime() || now + boss.respawn * 1000) : now + boss.respawn * 1000;
       await handleRotationOnKill(boss.id);
