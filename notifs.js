@@ -55,6 +55,7 @@ export async function sendNotif(lang, content, bossId, buttons = false) {
       )] : [];
     return await channel.send({ content, components });
   } catch (e) {
+    console.error(`[NOTIF] send failed (${lang}, ${bossId || 'n/a'}):`, e.message);
     return null;
   }
 }
@@ -78,7 +79,7 @@ export async function removeBossReactionsFn(bossId, contents = null) {
     const tasks = [];
     for (const [lang, msg] of Object.entries(cached)) {
       if (msg) tasks.push((async () => {
-        try { await msg.edit({ content: contents?.[lang] || msg.content, components: [] }); anyEdited = true; } catch (e) {}
+        try { await msg.edit({ content: contents?.[lang] || msg.content, components: [] }); anyEdited = true; } catch (e) { console.warn(`[NOTIF] edit failed (${lang}, ${bossId}):`, e.message); }
       })());
     }
     await Promise.all(tasks);
@@ -100,13 +101,13 @@ export async function removeBossReactionsFn(bossId, contents = null) {
         try {
           const msg = await channel.messages.fetch(msgId);
           if (msg) { await msg.edit({ content: contents?.[l] || msg.content, components: [] }); anyEdited = true; }
-        } catch (e) {}
+        } catch (e) { console.warn(`[NOTIF] edit failed (${l}, ${bossId}):`, e.message); }
       })());
     }
   }
   await Promise.all(allTasks);
   for (const doc of snapshot.docs) {
-    try { await doc.ref.delete(); } catch (e) {}
+    try { await doc.ref.delete(); } catch (e) { console.warn(`[NOTIF] doc delete failed (${bossId}):`, e.message); }
   }
   return anyEdited;
 }
@@ -135,7 +136,7 @@ export async function startNotifLoop() {
         if (!boss.respawn && remainingMs < -300000) {
           const next = getNextSpawnFn(boss);
           if (next) {
-            timers[id] = { endTime: next.getTime(), startedAt: next.getTime(), weekly: true, guild: info.guild };
+            timers[id] = { endTime: next.getTime(), startedAt: next.getTime(), weekly: true };
             await saveTimersFn();
             continue;
           }
@@ -204,7 +205,7 @@ export async function startNotifLoop() {
           }
           notifMessageCache.delete(id);
         }
-        } catch (e) { /* skip failed boss, continue loop */ }
+        } catch (e) { console.error(`[NOTIF] loop error for ${id}:`, e); }
       }
     } catch (e) {
       console.error('Notif loop error:', e);

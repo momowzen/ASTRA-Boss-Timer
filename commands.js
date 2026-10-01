@@ -55,12 +55,6 @@ function cycleGuild() {
   const order = rot.order || [];
   if (order.length < 2) return;
   rot.activeIdx = ((rot.activeIdx || 0) + 1) % order.length;
-  const newGuild = order[rot.activeIdx];
-  if (rot.bossGuild) {
-    for (const bossId of Object.keys(rot.bossGuild)) {
-      rot.bossGuild[bossId] = newGuild;
-    }
-  }
   config.rotation = rot;
 }
 
@@ -125,15 +119,11 @@ async function sendDefeatNotification(bossId, killedAt, endTime, statusKey, user
   const nameKo = bossNameFn(bossId, 'ko');
   const nameJa = bossNameFn(bossId, 'ja');
   const killEn = formatSpawnTimeFn(killedAt);
-  const killKo = formatSpawnTimeFn(killedAt);
-  const killJa = formatSpawnTimeFn(killedAt);
   const nextEn = formatSpawnTimeFn(endTime);
-  const nextKo = formatSpawnTimeFn(endTime);
-  const nextJa = formatSpawnTimeFn(endTime);
   await sendAllNotifsFn(
     `**[**\`${TAG[statusKey].en}\`**] ${nameEn}**\n${KILL.en}: ${killEn} | ${NEXT.en}: ${nextEn}\n${BY.en}: ${user}`,
-    `**[**\`${TAG[statusKey].ko}\`**] ${nameKo}**\n${KILL.ko}: ${killKo} | ${NEXT.ko}: ${nextKo}\n${BY.ko}: ${user}`,
-    `**[**\`${TAG[statusKey].ja}\`**] ${nameJa}**\n${KILL.ja}: ${killJa} | ${NEXT.ja}: ${nextJa}\n${BY.ja}: ${user}`,
+    `**[**\`${TAG[statusKey].ko}\`**] ${nameKo}**\n${KILL.ko}: ${killEn} | ${NEXT.ko}: ${nextEn}\n${BY.ko}: ${user}`,
+    `**[**\`${TAG[statusKey].ja}\`**] ${nameJa}**\n${KILL.ja}: ${killEn} | ${NEXT.ja}: ${nextEn}\n${BY.ja}: ${user}`,
     bossId
   );
 }
@@ -165,7 +155,7 @@ function applySet(boss, dateStr, timeStr, user, lang) {
     const fullYear = new Date(now + TZ_OFFSET).getUTCFullYear();
     const dateProbe = new Date(Date.UTC(fullYear, month - 1, day));
     if (dateProbe.getUTCMonth() !== month - 1 || dateProbe.getUTCDate() !== day) return tFn('invalidDate', lang);
-    killedAt = Date.UTC(fullYear, month - 1, day, hour - 9, minute);
+    killedAt = Date.UTC(fullYear, month - 1, day, hour, minute) - TZ_OFFSET;
   } else {
     const jstNow = new Date(now + TZ_OFFSET);
     killedAt = new Date(Date.UTC(jstNow.getUTCFullYear(), jstNow.getUTCMonth(), jstNow.getUTCDate(), hour, minute)).getTime() - TZ_OFFSET;
@@ -375,9 +365,9 @@ export async function handleCommand(msg) {
     if (!boss) return msg.reply(`${tFn('bossNotFound', lang)} ${query}`);
     if (boss.weeklyRespawns) return msg.reply(`${bossNameFn(boss.id, lang)}: ${tFn('scheduleOnly', lang)}`);
     const now = Date.now();
-    const endTime = boss.weeklyRespawns ? (getNextSpawnFn(boss)?.getTime() || now + boss.respawn * 1000) : now + boss.respawn * 1000;
+    const endTime = now + boss.respawn * 1000;
     await handleRotationOnKill(boss.id);
-    const timerEntry = { endTime, startedAt: now, guild: getCurrentGuild(boss.id) };
+    const timerEntry = { endTime, startedAt: now };
     timers[boss.id] = timerEntry;
     await removeBossReactionsFn(boss.id);
     resetBossCycleFn(boss.id);
@@ -396,13 +386,9 @@ export async function handleCommand(msg) {
     if (boss.weeklyRespawns) return msg.reply(`${bossNameFn(boss.id, lang)}: ${tFn('scheduleOnly', lang)}`);
     const result = applySet(boss, parsed.date, parsed.time, msg.author, lang);
     if (typeof result === 'string') return msg.reply(result);
-    let endTime = result.endTime;
-    if (boss.weeklyRespawns) {
-      const next = getNextSpawnFn(boss);
-      if (next) endTime = next.getTime();
-    }
+    const endTime = result.endTime;
     await handleRotationOnKill(boss.id);
-    const timerEntry = { endTime, startedAt: result.killedAt, guild: getCurrentGuild(boss.id) };
+    const timerEntry = { endTime, startedAt: result.killedAt };
     timers[boss.id] = timerEntry;
     await removeBossReactionsFn(boss.id);
     resetBossCycleFn(boss.id);
@@ -422,9 +408,9 @@ export async function handleCommand(msg) {
     if (!timer || !timer.endTime) return msg.reply(`${tFn('noTimer', lang)} ${bossNameFn(boss.id, lang)}`);
     const now = Date.now();
     const killedAt = timer.endTime + 2 * 60 * 1000;
-    const endTime = boss.weeklyRespawns ? (getNextSpawnFn(boss)?.getTime() || killedAt + boss.respawn * 1000) : killedAt + boss.respawn * 1000;
+    const endTime = killedAt + boss.respawn * 1000;
     await handleRotationOnKill(boss.id);
-    const timerEntry = { endTime, startedAt: killedAt, guild: getCurrentGuild(boss.id) };
+    const timerEntry = { endTime, startedAt: killedAt };
     timers[boss.id] = timerEntry;
     await removeBossReactionsFn(boss.id);
     resetBossCycleFn(boss.id);
@@ -538,9 +524,6 @@ export async function handleCommand(msg) {
     for (const boss of BOSSES_DATA) {
       if (boss.respawn) { delete timers[boss.id]; await removeBossReactionsFn(boss.id).catch(() => {}); }
     }
-    config.rotation = { type: null, order: [], activeIdx: 0, bossGuild: {}, lastRotatedAt: 0, flipDay: null, flipHour: null, flipMinute: null };
-    config.guildNames = {};
-    await saveConfigFn();
     await saveTimersFn();
     const user = getUserName(msg.author, msg.member);
     await sendAllNotifsFn(
@@ -784,13 +767,9 @@ export async function handleCommand(msg) {
       if (boss.weeklyRespawns) return msg.reply(`${bossNameFn(boss.id, lang)}: ${tFn('scheduleOnly', lang)}`);
       const result = applySet(boss, parsed.date, parsed.time, msg.author, lang);
       if (typeof result === 'string') return msg.reply(result);
-      let endTime = result.endTime;
-      if (boss.weeklyRespawns) {
-        const next = getNextSpawnFn(boss);
-        if (next) endTime = next.getTime();
-      }
+      const endTime = result.endTime;
       await handleRotationOnKill(boss.id);
-      const timerEntry = { endTime, startedAt: result.killedAt, guild: getCurrentGuild(boss.id) };
+      const timerEntry = { endTime, startedAt: result.killedAt };
       timers[boss.id] = timerEntry;
       await removeBossReactionsFn(boss.id);
       resetBossCycleFn(boss.id);
@@ -808,9 +787,9 @@ export async function handleCommand(msg) {
       if (!boss) return msg.reply(`${tFn('bossNotFound', lang)} ${query}`);
       if (boss.weeklyRespawns) return msg.reply(`${bossNameFn(boss.id, lang)}: ${tFn('scheduleOnly', lang)}`);
       const now = Date.now();
-      const endTime = boss.weeklyRespawns ? (getNextSpawnFn(boss)?.getTime() || now + boss.respawn * 1000) : now + boss.respawn * 1000;
+      const endTime = now + boss.respawn * 1000;
       await handleRotationOnKill(boss.id);
-      const timerEntry = { endTime, startedAt: now, guild: getCurrentGuild(boss.id) };
+      const timerEntry = { endTime, startedAt: now };
       timers[boss.id] = timerEntry;
       await removeBossReactionsFn(boss.id);
       resetBossCycleFn(boss.id);
@@ -841,7 +820,7 @@ export async function handleInteraction(interaction) {
       const boss = findBossFn(bossNameStr.trim());
       if (!boss) continue;
       const y = jstNow.getUTCFullYear();
-      const spawnTime = Date.UTC(y, parseInt(month) - 1, parseInt(day), parseInt(hour) - 9, parseInt(minute));
+      const spawnTime = Date.UTC(y, parseInt(month) - 1, parseInt(day), parseInt(hour), parseInt(minute)) - TZ_OFFSET;
       if (!isNaN(spawnTime)) {
         if (boss.respawn) {
           timers[boss.id] = { endTime: spawnTime, startedAt: spawnTime - boss.respawn * 1000 };
@@ -1170,10 +1149,10 @@ export async function handleInteraction(interaction) {
 
   if (action === 'markdead') {
     interaction.deferUpdate().catch(() => {});
-    const endTime = boss.weeklyRespawns ? getNextSpawnFn(boss)?.getTime() : now + boss.respawn * 1000;
+    const endTime = now + boss.respawn * 1000;
     if (timers[boss.id] && Math.abs(timers[boss.id].endTime - endTime) < 2000) return;
     await handleRotationOnKill(boss.id);
-    const timerEntry = { endTime, startedAt: now, guild: getCurrentGuild(boss.id) };
+    const timerEntry = { endTime, startedAt: now };
     timers[boss.id] = timerEntry;
     await removeBossReactionsFn(boss.id);
     resetBossCycleFn(boss.id);
@@ -1189,10 +1168,10 @@ export async function handleInteraction(interaction) {
     const timer = timers[boss.id];
     if (!timer || !timer.endTime) return;
     const killedAt = (timer.endTime || now) + 2 * 60 * 1000;
-    const endTime = boss.weeklyRespawns ? getNextSpawnFn(boss)?.getTime() : killedAt + boss.respawn * 1000;
+    const endTime = killedAt + boss.respawn * 1000;
     if (timers[boss.id] && timers[boss.id].endTime && Math.abs(timers[boss.id].endTime - endTime) < 2000) return;
     await handleRotationOnKill(boss.id);
-    const timerEntry = { endTime, startedAt: killedAt, guild: getCurrentGuild(boss.id) };
+    const timerEntry = { endTime, startedAt: killedAt };
     timers[boss.id] = timerEntry;
     await removeBossReactionsFn(boss.id);
     resetBossCycleFn(boss.id);

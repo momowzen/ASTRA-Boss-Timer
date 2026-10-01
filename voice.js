@@ -164,7 +164,7 @@ export function checkWorldBossTts(now) {
     const jstNow = new Date(now + TZ_OFFSET);
     let nextSpawn = null;
     for (const { hour, minute } of WORLD_BOSS_TIMES) {
-      const s = Date.UTC(jstNow.getUTCFullYear(), jstNow.getUTCMonth(), jstNow.getUTCDate(), hour - 9, minute);
+      const s = Date.UTC(jstNow.getUTCFullYear(), jstNow.getUTCMonth(), jstNow.getUTCDate(), hour, minute) - TZ_OFFSET;
       let ts = s;
       if (ts < now - 300000) ts += 86400000;
       if (!nextSpawn || ts < nextSpawn) nextSpawn = ts;
@@ -187,7 +187,7 @@ export function checkWorldBossTts(now) {
         speak(TTS_WORLD_BOSS_SPAWNED[config.voiceLang] || TTS_WORLD_BOSS_SPAWNED.en);
       }
     }
-  } catch (e) {}
+  } catch (e) { console.error('[VOICE] World boss TTS check error:', e); }
 }
 
 export function cleanupWorldBoss() {
