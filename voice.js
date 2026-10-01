@@ -125,7 +125,8 @@ function buildSpawnStrings(nextRespawnTime) {
   return [dateStr, timeStr];
 }
 
-export function speakDefeated(bossId, nextRespawnTime, BOSSES_DATA) {
+export function speakDefeated(bossId, nextRespawnTime, BOSSES_DATA, trackerId = 'main') {
+  if (trackerId !== 'main') return;
   const boss = BOSSES_DATA.find(b => b.id === bossId);
   if (!boss) return;
   const [dateStr, timeStr] = buildSpawnStrings(nextRespawnTime);
@@ -133,7 +134,8 @@ export function speakDefeated(bossId, nextRespawnTime, BOSSES_DATA) {
   speak(fn(bossNameFn(bossId, config.voiceLang), dateStr, timeStr));
 }
 
-export function speakSet(bossId, nextRespawnTime, BOSSES_DATA) {
+export function speakSet(bossId, nextRespawnTime, BOSSES_DATA, trackerId = 'main') {
+  if (trackerId !== 'main') return;
   const boss = BOSSES_DATA.find(b => b.id === bossId);
   if (!boss) return;
   const [dateStr, timeStr] = buildSpawnStrings(nextRespawnTime);
@@ -141,7 +143,8 @@ export function speakSet(bossId, nextRespawnTime, BOSSES_DATA) {
   speak(fn(bossNameFn(bossId, config.voiceLang), dateStr, timeStr));
 }
 
-export function speakMissed(bossId, nextRespawnTime, BOSSES_DATA) {
+export function speakMissed(bossId, nextRespawnTime, BOSSES_DATA, trackerId = 'main') {
+  if (trackerId !== 'main') return;
   const boss = BOSSES_DATA.find(b => b.id === bossId);
   if (!boss) return;
   const [dateStr, timeStr] = buildSpawnStrings(nextRespawnTime);
@@ -149,12 +152,14 @@ export function speakMissed(bossId, nextRespawnTime, BOSSES_DATA) {
   speak(fn(bossNameFn(bossId, config.voiceLang), dateStr, timeStr));
 }
 
-export function speakFromNotifLoop(bossName, minutesLeft) {
+export function speakFromNotifLoop(bossName, minutesLeft, trackerId = 'main') {
+  if (trackerId !== 'main') return;
   const ttsFn = TTS_SPAWN_IN[config.voiceLang] || TTS_SPAWN_IN.en;
   speak(ttsFn(bossName, minutesLeft));
 }
 
-export function speakSpawned(bossName) {
+export function speakSpawned(bossName, trackerId = 'main') {
+  if (trackerId !== 'main') return;
   const spawnFn = TTS_SPAWNED[config.voiceLang] || TTS_SPAWNED.en;
   speak(spawnFn(bossName));
 }

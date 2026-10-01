@@ -3,7 +3,7 @@ import { ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder, Messa
 let config, timers, db, bossNameFn, tFn, formatJSTFn, BOSSES_DATA, TZ_OFFSET, LANG_LIST;
 let findBossFn, getNextSpawnFn, formatSpawnTimeFn, formatRemainingFn, visualLen, padL, padC, padR, detectLang, CMD_ALIAS, CMD_MAP;
 let sendAllNotifsFn, removeBossReactionsFn, resetBossCycleFn, saveTimersFn, addHistoryFn, saveConfigFn, speakDefeatedFn, speakSetFn, speakMissedFn;
-let notifMessageCache;
+let mainCtx, resolveTrackerByChannelFn, getSubBindingFn, hasSubTrackersFn, createSubTrackerFn, removeSubTrackerFn;
 
 export function initCommands(deps) {
   config = deps.config;
@@ -35,7 +35,12 @@ export function initCommands(deps) {
   speakDefeatedFn = deps.speakDefeated;
   speakSetFn = deps.speakSet;
   speakMissedFn = deps.speakMissed;
-  notifMessageCache = deps.notifMessageCache;
+  mainCtx = deps.mainCtx;
+  resolveTrackerByChannelFn = deps.resolveTrackerByChannel;
+  getSubBindingFn = deps.getSubBinding;
+  hasSubTrackersFn = deps.hasSubTrackers;
+  createSubTrackerFn = deps.createSubTracker;
+  removeSubTrackerFn = deps.removeSubTracker;
 }
 
 // ─── Rotation helper functions ──────────────────
@@ -58,7 +63,8 @@ function cycleGuild() {
   config.rotation = rot;
 }
 
-async function handleRotationOnKill(bossId) {
+async function handleRotationOnKill(bossId, ctx = mainCtx) {
+  if (!ctx || ctx.id !== 'main') return;
   const rot = config.rotation || {};
   if (!rot.type || !rot.order || rot.order.length < 2) return;
   if (!rot.bossGuild) rot.bossGuild = {};
@@ -114,7 +120,7 @@ function buildGuildEmbeds(rows, title, color) {
   return [new EmbedBuilder().setTitle(title).setDescription(description).setColor(color)];
 }
 
-async function sendDefeatNotification(bossId, killedAt, endTime, statusKey, user) {
+async function sendDefeatNotification(bossId, killedAt, endTime, statusKey, user, tracker = mainCtx) {
   const nameEn = bossNameFn(bossId, 'en');
   const nameKo = bossNameFn(bossId, 'ko');
   const nameJa = bossNameFn(bossId, 'ja');
@@ -124,8 +130,14 @@ async function sendDefeatNotification(bossId, killedAt, endTime, statusKey, user
     `**[**\`${TAG[statusKey].en}\`**] ${nameEn}**\n${KILL.en}: ${killEn} | ${NEXT.en}: ${nextEn}\n${BY.en}: ${user}`,
     `**[**\`${TAG[statusKey].ko}\`**] ${nameKo}**\n${KILL.ko}: ${killEn} | ${NEXT.ko}: ${nextEn}\n${BY.ko}: ${user}`,
     `**[**\`${TAG[statusKey].ja}\`**] ${nameJa}**\n${KILL.ja}: ${killEn} | ${NEXT.ja}: ${nextEn}\n${BY.ja}: ${user}`,
-    bossId
+    bossId, false, tracker
   );
+}
+
+function mainOnlyGuard(interaction, lang) {
+  if (getSubBindingFn(interaction.channelId)) return tFn('subTrackerMainOnly', lang);
+  if (hasSubTrackersFn() && !resolveTrackerByChannelFn(interaction.channelId)) return tFn('subTrackerMainOnly', lang);
+  return null;
 }
 
 function getUserName(author, member) {
@@ -142,7 +154,7 @@ function parseBossTimeArgs(args) {
   return { name: args.slice(0, args.length - 1).join(' '), date: null, time: last };
 }
 
-function applySet(boss, dateStr, timeStr, user, lang) {
+function applySet(boss, dateStr, timeStr, user, lang, tracker = mainCtx) {
   const hour = parseInt(timeStr.slice(0, 2));
   const minute = parseInt(timeStr.slice(2, 4));
   if (isNaN(hour) || isNaN(minute) || hour < 0 || hour > 23 || minute < 0 || minute > 59) return tFn('invalidTime', lang);
@@ -163,7 +175,7 @@ function applySet(boss, dateStr, timeStr, user, lang) {
   if (isNaN(killedAt)) return tFn('invalidDate', lang);
   if (killedAt > Date.now()) return tFn('futureTime', lang);
   const endTime = boss.respawn ? killedAt + boss.respawn * 1000 : killedAt;
-  timers[boss.id] = { endTime, startedAt: killedAt };
+  tracker.timers[boss.id] = { endTime, startedAt: killedAt };
   return { ok: true, killedAt, endTime };
 }
 
@@ -199,8 +211,8 @@ const HELP_EN = [
   '',
   '**Tracker Management**',
   '`reset_tracker confirm` → Reset all interval boss timers.',
-  '`/import` → Import boss timers.',
-  '`/export` → Export boss timers.',
+  '`/import` → Import boss timers. (main tracker only)',
+  '`/export` → Export boss timers. (main tracker only)',
   '',
   '**Guild Rotation**',
   '`/rotation type:kill` → Enable per-kill rotation (flips on each kill/set/miss).',
@@ -220,6 +232,11 @@ const HELP_EN = [
   '**Notifications**',
   '`/setup` → Configure notification channels.',
   '`/setup ping_here:True` → Enable `@here` spawn notifications.',
+  '',
+  '**Sub-trackers**',
+  '`/setsubtracker action:set tracker:<2+> channel:<ch> language:<en/ko/ja>` → Bind a channel to an independent tracker.',
+  '`/setsubtracker action:remove tracker:<n>` → Unbind a sub-tracker.',
+  '`/setsubtracker action:list` → List sub-tracker bindings.',
   '',
   '**Help**',
   '`astra` / `astra help` / `/astra` → Show this help.',
@@ -257,8 +274,11 @@ const HELP_KO = [
   '',
   '**트래커 관리**',
   '`초기화_전체 확인` → 모든 고정 주기 보스 타이머를 초기화합니다.',
-  '`/가져오기` → 보스 타이머를 가져옵니다.',
-  '`/내보내기` → 보스 타이머를 내보냅니다.',
+  '`/가져오기` → 보스 타이머를 가져옵니다. (메인 트래커 전용)',
+  '`/내보내기` → 보스 타이머를 내보냅니다. (메인 트래커 전용)',
+  '`/서브트래커설정 action:set tracker:<2+> channel:<채널> language:<en/ko/ja>` → 독립 서브 트래커 채널 연결.',
+  '`/서브트래커설정 action:remove tracker:<n>` → 서브 트래커 해제.',
+  '`/서브트래커설정 action:list` → 서브 트래커 목록 표시.',
   '',
   '**길드 로테이션**',
   '`/로테이션 type:kill` → 킬별 로테이션 활성화 (처치/설정/놓침 시 전환).',
@@ -315,8 +335,11 @@ const HELP_JA = [
   '',
   '**トラッカー管理**',
   '`全解除 確認` → すべての固定周期ボスタイマーをリセットします。',
-  '`/いんぽーと` → ボスタイマーをインポートします。',
-  '`/エクスポート` → ボスタイマーをエクスポートします。',
+  '`/いんぽーと` → ボスタイマーをインポートします。（メイントラッカーのみ）',
+  '`/エクスポート` → ボスタイマーをエクスポートします。（メイントラッカーのみ）',
+  '`/サブトラッカー設定 action:set tracker:<2+> channel:<チャンネル> language:<en/ko/ja>` → 独立サブトラッカーをチャンネルに設定。',
+  '`/サブトラッカー設定 action:remove tracker:<n>` → サブトラッカーを解除。',
+  '`/サブトラッカー設定 action:list` → サブトラッカー一覧を表示。',
   '',
   '**ギルドローテーション**',
   '`/ローテーション type:kill` → キル毎ローテーション有効化（討伐/設定/逃しで切替）。',
@@ -347,9 +370,10 @@ export function buildDetailedHelp(lang = 'en') {
   return HELP_EN;
 }
 
-export async function handleCommand(msg) {
+export async function handleCommand(msg, tracker = mainCtx) {
   const content = msg.content.trim();
   const lang = detectLang(content);
+  const outLang = tracker.id === 'main' ? lang : tracker.lang;
   const parts = content.split(/\s+/);
   const resolved = (function resolveCommand(raw) {
     const lower = raw.toLowerCase();
@@ -358,6 +382,7 @@ export async function handleCommand(msg) {
 
   if (resolved && (resolved.lang === lang || resolved.lang === 'en' || parts[0].toLowerCase() === CMD_ALIAS[resolved.id]?.en)) {
     const cmd = resolved.id;
+    const inSub = tracker.id !== 'main';
 
   if (cmd === 'kill' && parts.length >= 2) {
     const query = parts.slice(1).join(' ');
@@ -366,15 +391,15 @@ export async function handleCommand(msg) {
     if (boss.weeklyRespawns) return msg.reply(`${bossNameFn(boss.id, lang)}: ${tFn('scheduleOnly', lang)}`);
     const now = Date.now();
     const endTime = now + boss.respawn * 1000;
-    await handleRotationOnKill(boss.id);
+    await handleRotationOnKill(boss.id, tracker);
     const timerEntry = { endTime, startedAt: now };
-    timers[boss.id] = timerEntry;
-    await removeBossReactionsFn(boss.id);
-    resetBossCycleFn(boss.id);
-    await sendDefeatNotification(boss.id, now, endTime, 'defeated', getUserName(msg.author, msg.member));
-    await saveTimersFn();
-    await addHistoryFn(boss.id, 'killed', now);
-    speakDefeatedFn(boss.id, endTime);
+    tracker.timers[boss.id] = timerEntry;
+    await removeBossReactionsFn(boss.id, null, tracker);
+    resetBossCycleFn(boss.id, tracker);
+    await sendDefeatNotification(boss.id, now, endTime, 'defeated', getUserName(msg.author, msg.member), tracker);
+    await saveTimersFn(tracker);
+    await addHistoryFn(boss.id, 'killed', now, tracker.id);
+    speakDefeatedFn(boss.id, endTime, tracker.id);
     return;
   }
 
@@ -384,18 +409,18 @@ export async function handleCommand(msg) {
     const boss = findBossFn(parsed.name, lang);
     if (!boss) return msg.reply(`${tFn('bossNotFound', lang)} ${parsed.name}`);
     if (boss.weeklyRespawns) return msg.reply(`${bossNameFn(boss.id, lang)}: ${tFn('scheduleOnly', lang)}`);
-    const result = applySet(boss, parsed.date, parsed.time, msg.author, lang);
+    const result = applySet(boss, parsed.date, parsed.time, msg.author, lang, tracker);
     if (typeof result === 'string') return msg.reply(result);
     const endTime = result.endTime;
-    await handleRotationOnKill(boss.id);
+    await handleRotationOnKill(boss.id, tracker);
     const timerEntry = { endTime, startedAt: result.killedAt };
-    timers[boss.id] = timerEntry;
-    await removeBossReactionsFn(boss.id);
-    resetBossCycleFn(boss.id);
-      await sendDefeatNotification(boss.id, result.killedAt, endTime, 'manualSet', getUserName(msg.author, msg.member));
-    await saveTimersFn();
-    await addHistoryFn(boss.id, 'killed', result.killedAt);
-    speakSetFn(boss.id, endTime);
+    tracker.timers[boss.id] = timerEntry;
+    await removeBossReactionsFn(boss.id, null, tracker);
+    resetBossCycleFn(boss.id, tracker);
+      await sendDefeatNotification(boss.id, result.killedAt, endTime, 'manualSet', getUserName(msg.author, msg.member), tracker);
+    await saveTimersFn(tracker);
+    await addHistoryFn(boss.id, 'killed', result.killedAt, tracker.id);
+    speakSetFn(boss.id, endTime, tracker.id);
     return;
   }
 
@@ -404,20 +429,20 @@ export async function handleCommand(msg) {
     const boss = findBossFn(query, lang);
     if (!boss) return msg.reply(`${tFn('bossNotFound', lang)} ${query}`);
     if (boss.weeklyRespawns) return msg.reply(`${bossNameFn(boss.id, lang)}: ${tFn('scheduleOnly', lang)}`);
-    const timer = timers[boss.id];
+    const timer = tracker.timers[boss.id];
     if (!timer || !timer.endTime) return msg.reply(`${tFn('noTimer', lang)} ${bossNameFn(boss.id, lang)}`);
     const now = Date.now();
     const killedAt = timer.endTime + 2 * 60 * 1000;
     const endTime = killedAt + boss.respawn * 1000;
-    await handleRotationOnKill(boss.id);
+    await handleRotationOnKill(boss.id, tracker);
     const timerEntry = { endTime, startedAt: killedAt };
-    timers[boss.id] = timerEntry;
-    await removeBossReactionsFn(boss.id);
-    resetBossCycleFn(boss.id);
-    await sendDefeatNotification(boss.id, killedAt, endTime, 'missed', getUserName(msg.author, msg.member));
-    await saveTimersFn();
-    await addHistoryFn(boss.id, 'missed', now);
-    speakMissedFn(boss.id, endTime);
+    tracker.timers[boss.id] = timerEntry;
+    await removeBossReactionsFn(boss.id, null, tracker);
+    resetBossCycleFn(boss.id, tracker);
+    await sendDefeatNotification(boss.id, killedAt, endTime, 'missed', getUserName(msg.author, msg.member), tracker);
+    await saveTimersFn(tracker);
+    await addHistoryFn(boss.id, 'missed', now, tracker.id);
+    speakMissedFn(boss.id, endTime, tracker.id);
     return;
   }
 
@@ -426,14 +451,15 @@ export async function handleCommand(msg) {
     const boss = findBossFn(query, lang);
     if (!boss) return msg.reply(`${tFn('bossNotFound', lang)} ${query}`);
     if (boss.weeklyRespawns) return msg.reply(tFn('scheduleOnly', lang));
-    removeBossReactionsFn(boss.id).catch(() => {});
-    delete timers[boss.id];
-    await saveTimersFn();
+    removeBossReactionsFn(boss.id, null, tracker).catch(() => {});
+    delete tracker.timers[boss.id];
+    await saveTimersFn(tracker);
     const user = getUserName(msg.author, msg.member);
     await sendAllNotifsFn(
       `**[**\`CLEARED\`**] ${bossNameFn(boss.id, 'en')}**\n${BY.en}: ${user}`,
       `**[**\`삭제\`**] ${bossNameFn(boss.id, 'ko')}**\n${BY.ko}: ${user}`,
-      `**[**\`解除\`**] ${bossNameFn(boss.id, 'ja')}**\n${BY.ja}: ${user}`
+      `**[**\`解除\`**] ${bossNameFn(boss.id, 'ja')}**\n${BY.ja}: ${user}`,
+      null, false, tracker
     );
     return;
   }
@@ -443,14 +469,14 @@ export async function handleCommand(msg) {
     const interval = BOSSES_DATA.filter(b => b.respawn && b.id !== 'Test');
     const gn = config.guildNames || {};
     const toRow = (boss) => {
-      const next = getNextSpawnFn(boss);
+      const next = getNextSpawnFn(boss, tracker.timers);
       const guild = getCurrentGuild(boss.id);
-      return { spawnMs: next ? next.getTime() : null, name: bossNameFn(boss.id, lang), guild };
+      return { spawnMs: next ? next.getTime() : null, name: bossNameFn(boss.id, outLang), guild };
     };
-    for (const embed of buildEmbeds(schedule.map(toRow), tFn('fixSchedule', lang).toUpperCase(), lang, 0x9B59B6)) {
+    for (const embed of buildEmbeds(schedule.map(toRow), tFn('fixSchedule', outLang).toUpperCase(), outLang, 0x9B59B6)) {
       await msg.reply({ embeds: [embed] });
     }
-    for (const embed of buildEmbeds(interval.map(toRow), tFn('fixInterval', lang).toUpperCase(), lang, 0x3498DB)) {
+    for (const embed of buildEmbeds(interval.map(toRow), tFn('fixInterval', outLang).toUpperCase(), outLang, 0x3498DB)) {
       await msg.reply({ embeds: [embed] });
     }
     return;
@@ -462,19 +488,19 @@ export async function handleCommand(msg) {
     const bosses = [];
     for (const boss of BOSSES_DATA) {
       if (boss.id === 'Test') continue;
-      const next = getNextSpawnFn(boss);
+      const next = getNextSpawnFn(boss, tracker.timers);
       if (next) {
         const time = next.getTime();
         if (time >= now && time <= cutoff24h) bosses.push({ boss, time });
       }
     }
-    if (bosses.length === 0) return msg.reply(tFn('noActiveBosses', lang));
+    if (bosses.length === 0) return msg.reply(tFn('noActiveBosses', outLang));
     bosses.sort((a, b) => a.time - b.time);
     const embeds = buildEmbeds(bosses.map(({ boss, time }) => ({
       spawnMs: time,
-      name: bossNameFn(boss.id, lang),
+      name: bossNameFn(boss.id, outLang),
       guild: getCurrentGuild(boss.id)
-    })), tFn('upcomingField', lang).toUpperCase(), lang, 0x2ECC71);
+    })), tFn('upcomingField', outLang).toUpperCase(), outLang, 0x2ECC71);
     for (const embed of embeds) await msg.reply({ embeds: [embed] });
     return;
   }
@@ -484,13 +510,13 @@ export async function handleCommand(msg) {
     const bosses = [];
     for (const boss of BOSSES_DATA) {
       if (boss.id === 'Test') continue;
-      const next = getNextSpawnFn(boss);
+      const next = getNextSpawnFn(boss, tracker.timers);
       if (next) {
         const time = next.getTime();
         if (time >= now) bosses.push({ boss, time });
       }
     }
-    if (bosses.length === 0) return msg.reply(tFn('noActiveBosses', lang));
+    if (bosses.length === 0) return msg.reply(tFn('noActiveBosses', outLang));
 
     const rot = config.rotation || {};
     const order = rot.order || [];
@@ -501,13 +527,13 @@ export async function handleCommand(msg) {
     for (const { boss, time } of bosses) {
       const guild = getCurrentGuild(boss.id);
       const key = guild && groups[guild] ? guild : null;
-      groups[key].push({ spawnMs: time, name: bossNameFn(boss.id, lang) });
+      groups[key].push({ spawnMs: time, name: bossNameFn(boss.id, outLang) });
     }
 
     for (const [gName, entries] of Object.entries(groups)) {
       entries.sort((a, b) => a.spawnMs - b.spawnMs);
       if (entries.length > 0) {
-        const displayName = gName && gName !== 'null' ? getGuildDisplayName(gName) : tFn('unassigned', lang);
+        const displayName = gName && gName !== 'null' ? getGuildDisplayName(gName) : tFn('unassigned', outLang);
         for (const embed of buildGuildEmbeds(entries, displayName, 0x2ECC71)) {
           await msg.reply({ embeds: [embed] });
         }
@@ -522,20 +548,22 @@ export async function handleCommand(msg) {
       return msg.reply(tFn('resetConfirm', lang) || `**WARNING:** This will clear all interval boss timers permanently. Type \`reset_tracker confirm\` to proceed.`);
     }
     for (const boss of BOSSES_DATA) {
-      if (boss.respawn) { delete timers[boss.id]; await removeBossReactionsFn(boss.id).catch(() => {}); }
+      if (boss.respawn) { delete tracker.timers[boss.id]; await removeBossReactionsFn(boss.id, null, tracker).catch(() => {}); }
     }
-    await saveTimersFn();
+    await saveTimersFn(tracker);
     const user = getUserName(msg.author, msg.member);
     await sendAllNotifsFn(
       `**[**\`RESET\`**] Boss Tracker**\nAll interval timers reset.\n${BY.en}: ${user}`,
       `**[**\`초기화\`**] 보스 타이머**\n모든 고정 주기 타이머가 초기화되었습니다.\n${BY.ko}: ${user}`,
-      `**[**\`リセット\`**] ボスタイマー**\nすべての固定周期タイマーをリセットしました。\n${BY.ja}: ${user}`
+      `**[**\`リセット\`**] ボスタイマー**\nすべての固定周期タイマーをリセットしました。\n${BY.ja}: ${user}`,
+      null, false, tracker
     );
     return;
   }
 
   if (cmd === 'guildnames') {
     const args = parts.slice(1).join(' ');
+    if (inSub && args) return msg.reply(tFn('subTrackerMainOnly', lang));
     if (!args) {
       const gn = config.guildNames || {};
       const lines = [tFn('guildNamesTitle', lang) + ':'];
@@ -566,6 +594,7 @@ export async function handleCommand(msg) {
 
   if (cmd === 'rotation') {
     const args = parts.slice(1).join(' ');
+    if (inSub && args) return msg.reply(tFn('subTrackerMainOnly', lang));
     const rot = config.rotation || {};
 
     if (!args) {
@@ -663,6 +692,7 @@ export async function handleCommand(msg) {
 
   if (cmd === 'addguild') {
     const args = parts.slice(1).join(' ');
+    if (inSub && args) return msg.reply(tFn('subTrackerMainOnly', lang));
     const rot = config.rotation || {};
 
     if (!args) {
@@ -765,18 +795,18 @@ export async function handleCommand(msg) {
       const boss = findBossFn(parsed.name, lang);
       if (!boss) return msg.reply(`${tFn('bossNotFound', lang)} ${parsed.name}`);
       if (boss.weeklyRespawns) return msg.reply(`${bossNameFn(boss.id, lang)}: ${tFn('scheduleOnly', lang)}`);
-      const result = applySet(boss, parsed.date, parsed.time, msg.author, lang);
+      const result = applySet(boss, parsed.date, parsed.time, msg.author, lang, tracker);
       if (typeof result === 'string') return msg.reply(result);
       const endTime = result.endTime;
-      await handleRotationOnKill(boss.id);
+      await handleRotationOnKill(boss.id, tracker);
       const timerEntry = { endTime, startedAt: result.killedAt };
-      timers[boss.id] = timerEntry;
-      await removeBossReactionsFn(boss.id);
-      resetBossCycleFn(boss.id);
-    await sendDefeatNotification(boss.id, result.killedAt, endTime, 'manualSet', getUserName(msg.author, msg.member));
-      await saveTimersFn();
-      await addHistoryFn(boss.id, 'killed', result.killedAt);
-      speakSetFn(boss.id, endTime);
+      tracker.timers[boss.id] = timerEntry;
+      await removeBossReactionsFn(boss.id, null, tracker);
+      resetBossCycleFn(boss.id, tracker);
+    await sendDefeatNotification(boss.id, result.killedAt, endTime, 'manualSet', getUserName(msg.author, msg.member), tracker);
+      await saveTimersFn(tracker);
+      await addHistoryFn(boss.id, 'killed', result.killedAt, tracker.id);
+      speakSetFn(boss.id, endTime, tracker.id);
       return;
     }
 
@@ -788,22 +818,26 @@ export async function handleCommand(msg) {
       if (boss.weeklyRespawns) return msg.reply(`${bossNameFn(boss.id, lang)}: ${tFn('scheduleOnly', lang)}`);
       const now = Date.now();
       const endTime = now + boss.respawn * 1000;
-      await handleRotationOnKill(boss.id);
+      await handleRotationOnKill(boss.id, tracker);
       const timerEntry = { endTime, startedAt: now };
-      timers[boss.id] = timerEntry;
-      await removeBossReactionsFn(boss.id);
-      resetBossCycleFn(boss.id);
-      await sendDefeatNotification(boss.id, now, endTime, 'defeated', getUserName(msg.author, msg.member));
-      await saveTimersFn();
-      await addHistoryFn(boss.id, 'killed', now);
-      speakDefeatedFn(boss.id, endTime);
+      tracker.timers[boss.id] = timerEntry;
+      await removeBossReactionsFn(boss.id, null, tracker);
+      resetBossCycleFn(boss.id, tracker);
+      await sendDefeatNotification(boss.id, now, endTime, 'defeated', getUserName(msg.author, msg.member), tracker);
+      await saveTimersFn(tracker);
+      await addHistoryFn(boss.id, 'killed', now, tracker.id);
+      speakDefeatedFn(boss.id, endTime, tracker.id);
       return;
     }
   }
 }
 
 export async function handleInteraction(interaction) {
+  const localeLang = interaction.locale?.startsWith('ko') ? 'ko' : interaction.locale?.startsWith('ja') ? 'ja' : 'en';
+
   if (interaction.isModalSubmit() && interaction.customId === 'importModal') {
+    const guard = mainOnlyGuard(interaction, localeLang);
+    if (guard) return interaction.reply({ content: guard, flags: MessageFlags.Ephemeral });
     const text = interaction.fields.getTextInputValue('importData');
     const lines = text.split('\n');
     const updatedBosses = new Set();
@@ -836,6 +870,8 @@ export async function handleInteraction(interaction) {
   }
 
   if (interaction.isModalSubmit() && interaction.customId.startsWith('assignbossModal_')) {
+    const guard = mainOnlyGuard(interaction, localeLang);
+    if (guard) return interaction.reply({ content: guard, flags: MessageFlags.Ephemeral });
     const guildName = interaction.customId.replace('assignbossModal_', '');
     const text = interaction.fields.getTextInputValue('bossNames');
     const lang = interaction.locale?.startsWith('ko') ? 'ko' : interaction.locale?.startsWith('ja') ? 'ja' : 'en';
@@ -880,6 +916,50 @@ export async function handleInteraction(interaction) {
     const isRotation = cmdName === 'rotation' || cmdName === '로테이션' || cmdName === 'ローテーション';
     const isAddguild = cmdName === 'addguild' || cmdName === '길드추가' || cmdName === 'ギルド追加';
     const isAssignboss = cmdName === 'assignboss' || cmdName === '보스배정' || cmdName === 'ボス割当';
+    const isSetSub = cmdName === 'setsubtracker' || cmdName === '서브트래커설정' || cmdName === 'サブトラッカー設定';
+
+    if (isSetSub) {
+      const subAction = interaction.options.getString('action') || 'set';
+      const n = interaction.options.getInteger('tracker');
+      const channel = interaction.options.getChannel('channel');
+      const language = interaction.options.getString('language') || 'en';
+      if (!config.subTrackers || typeof config.subTrackers !== 'object') config.subTrackers = {};
+      const subs = config.subTrackers;
+
+      if (subAction === 'list') {
+        const ids = Object.keys(subs).sort((a, b) => Number(a) - Number(b));
+        const lines = [tFn('subTrackerListTitle', helpLang)];
+        if (ids.length === 0) lines.push(tFn('subTrackerNoList', helpLang));
+        else for (const id of ids) lines.push(`${id} → <#${subs[id].channel}> (${subs[id].lang})`);
+        return interaction.reply({ content: lines.join('\n'), flags: MessageFlags.Ephemeral });
+      }
+
+      if (!n || n < 2) return interaction.reply({ content: tFn('subTrackerUsage', helpLang), flags: MessageFlags.Ephemeral });
+
+      if (subAction === 'remove') {
+        if (!subs[String(n)]) return interaction.reply({ content: tFn('subTrackerNotFound', helpLang), flags: MessageFlags.Ephemeral });
+        removeSubTrackerFn(n);
+        delete subs[String(n)];
+        await saveConfigFn();
+        return interaction.reply({ content: tFn('subTrackerRemoved', helpLang), flags: MessageFlags.Ephemeral });
+      }
+
+      if (!channel) return interaction.reply({ content: tFn('subTrackerUsage', helpLang), flags: MessageFlags.Ephemeral });
+      const mainChans = Object.values(config.channels || {}).filter(Boolean);
+      const taken = Object.entries(subs).some(([id, s]) => s.channel === channel.id && id !== String(n));
+      if (mainChans.includes(channel.id) || taken) {
+        return interaction.reply({ content: tFn('subTrackerChannelTaken', helpLang), flags: MessageFlags.Ephemeral });
+      }
+      subs[String(n)] = { channel: channel.id, lang: language };
+      await createSubTrackerFn(n, subs[String(n)]);
+      await saveConfigFn();
+      return interaction.reply({ content: `${tFn('subTrackerSet', helpLang)} ${n} → <#${channel.id}> (${language})`, flags: MessageFlags.Ephemeral });
+    }
+
+    if (isSetup || isImport || isExport || isRotation || isAddguild || isAssignboss) {
+      const guard = mainOnlyGuard(interaction, helpLang);
+      if (guard) return interaction.reply({ content: guard, flags: MessageFlags.Ephemeral });
+    }
 
     if (isImport) {
       const modal = new ModalBuilder()
@@ -1145,40 +1225,45 @@ export async function handleInteraction(interaction) {
   const boss = BOSSES_DATA.find(b => b.id === bossId);
   if (!boss || !boss.respawn) { interaction.deferUpdate().catch(() => {}); return; }
 
+  const tracker = resolveTrackerByChannelFn(interaction.message.channelId);
+  if (!tracker) {
+    return interaction.reply({ content: tFn('subTrackerUnbound', lang), flags: MessageFlags.Ephemeral });
+  }
+
   const now = Date.now();
 
   if (action === 'markdead') {
     interaction.deferUpdate().catch(() => {});
     const endTime = now + boss.respawn * 1000;
-    if (timers[boss.id] && Math.abs(timers[boss.id].endTime - endTime) < 2000) return;
-    await handleRotationOnKill(boss.id);
+    if (tracker.timers[boss.id] && Math.abs(tracker.timers[boss.id].endTime - endTime) < 2000) return;
+    await handleRotationOnKill(boss.id, tracker);
     const timerEntry = { endTime, startedAt: now };
-    timers[boss.id] = timerEntry;
-    await removeBossReactionsFn(boss.id);
-    resetBossCycleFn(boss.id);
-    await sendDefeatNotification(bossId, now, endTime, 'defeated', getUserName(interaction.user, interaction.member));
-    await saveTimersFn();
-    await addHistoryFn(boss.id, 'killed', now);
-    speakDefeatedFn(bossId, endTime);
+    tracker.timers[boss.id] = timerEntry;
+    await removeBossReactionsFn(boss.id, null, tracker);
+    resetBossCycleFn(boss.id, tracker);
+    await sendDefeatNotification(bossId, now, endTime, 'defeated', getUserName(interaction.user, interaction.member), tracker);
+    await saveTimersFn(tracker);
+    await addHistoryFn(boss.id, 'killed', now, tracker.id);
+    speakDefeatedFn(bossId, endTime, tracker.id);
     return;
   }
 
   if (action === 'missed') {
     interaction.deferUpdate().catch(() => {});
-    const timer = timers[boss.id];
+    const timer = tracker.timers[boss.id];
     if (!timer || !timer.endTime) return;
     const killedAt = (timer.endTime || now) + 2 * 60 * 1000;
     const endTime = killedAt + boss.respawn * 1000;
-    if (timers[boss.id] && timers[boss.id].endTime && Math.abs(timers[boss.id].endTime - endTime) < 2000) return;
-    await handleRotationOnKill(boss.id);
+    if (tracker.timers[boss.id] && tracker.timers[boss.id].endTime && Math.abs(tracker.timers[boss.id].endTime - endTime) < 2000) return;
+    await handleRotationOnKill(boss.id, tracker);
     const timerEntry = { endTime, startedAt: killedAt };
-    timers[boss.id] = timerEntry;
-    await removeBossReactionsFn(boss.id);
-    resetBossCycleFn(boss.id);
-    await sendDefeatNotification(bossId, killedAt, endTime, 'missed', getUserName(interaction.user, interaction.member));
-    await saveTimersFn();
-    await addHistoryFn(boss.id, 'missed', now);
-    speakMissedFn(bossId, endTime);
+    tracker.timers[boss.id] = timerEntry;
+    await removeBossReactionsFn(boss.id, null, tracker);
+    resetBossCycleFn(boss.id, tracker);
+    await sendDefeatNotification(bossId, killedAt, endTime, 'missed', getUserName(interaction.user, interaction.member), tracker);
+    await saveTimersFn(tracker);
+    await addHistoryFn(boss.id, 'missed', now, tracker.id);
+    speakMissedFn(bossId, endTime, tracker.id);
     return;
   }
 }

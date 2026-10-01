@@ -1,12 +1,10 @@
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
 
-let client, config, db, timers, bossNameFn, tFn, formatJSTFn, LANG_LIST, BOSSES_DATA;
+let client, config, db, bossNameFn, tFn, formatJSTFn, LANG_LIST, BOSSES_DATA;
 let getNextSpawnFn, sendAllNotifs, removeBossReactions, resetBossCycle, saveConfigFn, saveTimersFn;
 
-let notifMessageCache;
-let sentSoonNotifs;
-let sentSpawnedNotifs;
-let ttsSpokenMinutes;
+let mainCtx;
+let allTrackerCtxsFn;
 let notifInterval;
 let cleanupInterval;
 let speakFn, speakFromNotifLoopFn, speakSpawnedFn;
@@ -15,17 +13,14 @@ export function initNotifs(deps) {
   client = deps.client;
   config = deps.config;
   db = deps.db;
-  timers = deps.timers;
   bossNameFn = deps.bossName;
   tFn = deps.t;
   formatJSTFn = deps.formatJST;
   LANG_LIST = deps.LANG_LIST;
   BOSSES_DATA = deps.BOSSES_DATA;
   getNextSpawnFn = deps.getNextSpawn;
-  notifMessageCache = deps.notifMessageCache;
-  sentSoonNotifs = deps.sentSoonNotifs;
-  sentSpawnedNotifs = deps.sentSpawnedNotifs;
-  ttsSpokenMinutes = deps.ttsSpokenMinutes;
+  mainCtx = deps.mainCtx;
+  allTrackerCtxsFn = deps.allTrackerCtxs;
   speakFn = deps.speak;
   speakFromNotifLoopFn = deps.speakFromNotifLoop;
   speakSpawnedFn = deps.speakSpawned;
@@ -39,13 +34,17 @@ function getChannel(lang) {
   return client.channels.cache.get(channelId) || null;
 }
 
+function channelFor(ctx, lang) {
+  if (!ctx || ctx.id === 'main') return getChannel(lang);
+  return ctx.channel ? client.channels.cache.get(ctx.channel) || null : null;
+}
+
 function getCurrentGuild(bossId) {
   const rot = config.rotation || {};
   return rot.bossGuild?.[bossId] || null;
 }
 
-export async function sendNotif(lang, content, bossId, buttons = false) {
-  const channel = getChannel(lang);
+async function sendToChannel(channel, lang, content, bossId, buttons = false) {
   if (!channel) return null;
   try {
     const components = buttons ? [new ActionRowBuilder()
@@ -60,7 +59,16 @@ export async function sendNotif(lang, content, bossId, buttons = false) {
   }
 }
 
-export async function sendAllNotifsFn(contentEn, contentKo, contentJa, bossId, buttons = false) {
+export async function sendNotif(lang, content, bossId, buttons = false) {
+  return sendToChannel(getChannel(lang), lang, content, bossId, buttons);
+}
+
+export async function sendAllNotifsFn(contentEn, contentKo, contentJa, bossId, buttons = false, ctx = mainCtx) {
+  if (ctx && ctx.id !== 'main') {
+    const byLang = { en: contentEn, ko: contentKo, ja: contentJa };
+    const msg = await sendToChannel(channelFor(ctx, ctx.lang), ctx.lang, byLang[ctx.lang] ?? contentEn, bossId, buttons);
+    return msg ? { [ctx.lang]: msg } : {};
+  }
   const promises = [];
   const langs = [];
   if (config.channels.en) { promises.push(sendNotif('en', contentEn, bossId, buttons)); langs.push('en'); }
@@ -72,8 +80,9 @@ export async function sendAllNotifsFn(contentEn, contentKo, contentJa, bossId, b
   return msgs;
 }
 
-export async function removeBossReactionsFn(bossId, contents = null) {
-  const cached = notifMessageCache.get(bossId);
+export async function removeBossReactionsFn(bossId, contents = null, ctx = mainCtx) {
+  const c = ctx || mainCtx;
+  const cached = c.notifCache.get(bossId);
   if (cached) {
     let anyEdited = false;
     const tasks = [];
@@ -83,19 +92,22 @@ export async function removeBossReactionsFn(bossId, contents = null) {
       })());
     }
     await Promise.all(tasks);
-    notifMessageCache.delete(bossId);
+    c.notifCache.delete(bossId);
     return anyEdited;
   }
   const snapshot = await db.collection('notifications').where('bossId', '==', bossId).get();
   if (snapshot.empty) return false;
+  const matched = snapshot.docs.filter(d => (d.data().tracker || 'main') === c.id);
+  if (matched.length === 0) return false;
+  const langs = c.id === 'main' ? LANG_LIST : [c.lang];
   let anyEdited = false;
   const allTasks = [];
-  for (const doc of snapshot.docs) {
+  for (const doc of matched) {
     const data = doc.data();
-    for (const l of LANG_LIST) {
+    for (const l of langs) {
       const msgId = data[l];
       if (!msgId) continue;
-      const channel = getChannel(l);
+      const channel = channelFor(c, l);
       if (!channel) continue;
       allTasks.push((async () => {
         try {
@@ -106,123 +118,134 @@ export async function removeBossReactionsFn(bossId, contents = null) {
     }
   }
   await Promise.all(allTasks);
-  for (const doc of snapshot.docs) {
+  for (const doc of matched) {
     try { await doc.ref.delete(); } catch (e) { console.warn(`[NOTIF] doc delete failed (${bossId}):`, e.message); }
   }
   return anyEdited;
 }
 
-export function resetBossCycleFn(bossId) {
-  for (const key of [...sentSoonNotifs]) { if (key.startsWith(bossId + '_')) sentSoonNotifs.delete(key); }
-  for (const key of [...sentSpawnedNotifs]) { if (key.startsWith(bossId + '_')) sentSpawnedNotifs.delete(key); }
-  notifMessageCache.delete(bossId);
+export function resetBossCycleFn(bossId, ctx = mainCtx) {
+  const c = ctx || mainCtx;
+  for (const key of [...c.sentSoon]) { if (key.startsWith(bossId + '_')) c.sentSoon.delete(key); }
+  for (const key of [...c.sentSpawned]) { if (key.startsWith(bossId + '_')) c.sentSpawned.delete(key); }
+  c.notifCache.delete(bossId);
 }
 
-export async function startNotifLoop() {
+async function runNotifCycle(ctx) {
+  const now = Date.now();
+  const timers = ctx.timers;
+  for (const [id, info] of Object.entries(timers)) {
+    try {
+    if (!info || !info.endTime) continue;
+    if (timers[id] !== info) continue;
+    const boss = BOSSES_DATA.find(b => b.id === id);
+    if (!boss) continue;
+    const hasButtons = !!boss.respawn;
+
+    const remainingMs = info.endTime - now;
+    if (!boss.respawn && remainingMs < -300000) {
+      const next = getNextSpawnFn(boss, ctx.timers);
+      if (next) {
+        timers[id] = { endTime: next.getTime(), startedAt: next.getTime(), weekly: true };
+        await saveTimersFn(ctx);
+        continue;
+      }
+    }
+
+    const cycleKey = `${id}_${info.endTime}`;
+
+    if (ctx.id === 'main' && remainingMs > 0 && remainingMs <= 5 * 60 * 1000) {
+      const minutesLeft = Math.ceil(remainingMs / 60000);
+      const spokeKey = `${id}_${info.endTime}_${minutesLeft}`;
+      if (!ctx.ttsSpoken.has(spokeKey)) {
+        ctx.ttsSpoken.set(spokeKey, true);
+        console.log(`[TTS] ${id} minute ${minutesLeft} spokeKey=${spokeKey}`);
+        speakFromNotifLoopFn(bossNameFn(id, config.voiceLang), minutesLeft, ctx.id);
+      }
+    }
+
+    if (remainingMs <= 5 * 60 * 1000 && remainingMs > 0 && !ctx.sentSoon.has(cycleKey)) {
+      ctx.sentSoon.add(cycleKey);
+      console.log(`[NOTIF] ${id} spawning soon cycleKey=${cycleKey} tracker=${ctx.id}`);
+      const trackerPrefix = ctx.id === 'main' ? '' : `${ctx.id}_`;
+      const notifId = `${trackerPrefix}${id}_soon_${info.endTime}`;
+      const prefix = ctx.id === 'main' && config.pingHere ? '\n@here' : '';
+      const guild = getCurrentGuild(id);
+      let guildLine = '';
+      if (guild != null) {
+        guildLine = `\n${tFn('assignedTo', 'en')}: ${guild}`;
+      }
+      const msgs = await sendAllNotifsFn(
+        `**[**\`SPAWNING\`**] ${bossNameFn(id, 'en')}**\nSpawn: ${formatJSTFn(info.endTime, 'en')}${guildLine}${prefix}`,
+        `**[**\`출현 예정\`**] ${bossNameFn(id, 'ko')}**\n출현: ${formatJSTFn(info.endTime, 'ko')}${guild ? `\n${tFn('assignedTo', 'ko')}: ${guild}` : ''}${prefix}`,
+        `**[**\`出現予定\`**] ${bossNameFn(id, 'ja')}**\n出現: ${formatJSTFn(info.endTime, 'ja')}${guild ? `\n${tFn('assignedTo', 'ja')}: ${guild}` : ''}${prefix}`,
+        id, hasButtons, ctx
+      );
+      if (timers[id] !== info) continue;
+      if (Object.keys(msgs).length > 0) ctx.notifCache.set(id, msgs);
+      const data = { bossId: id, type: 'spawning', timestamp: now, tracker: ctx.id };
+      for (const l of LANG_LIST) { if (msgs[l]) data[l] = msgs[l].id; }
+      await db.collection('notifications').doc(notifId).set(data);
+    }
+
+    if (remainingMs <= 0 && remainingMs > -300000 && !ctx.sentSpawned.has(cycleKey)) {
+      if (timers[id] !== info) continue;
+      ctx.sentSpawned.add(cycleKey);
+      console.log(`[SPAWNED] ${id} cycleKey=${cycleKey} tracker=${ctx.id}`);
+      speakSpawnedFn(bossNameFn(id, config.voiceLang), ctx.id);
+
+      const guild = getCurrentGuild(id);
+      let guildLine = '';
+      if (guild != null) {
+        guildLine = `\n${tFn('assignedTo', 'en')}: ${guild}`;
+      }
+      const cached = ctx.notifCache.get(id);
+      if (cached) {
+        const edits = [];
+      if (cached.en) edits.push(cached.en.edit({ content: `**[**\`SPAWNED\`**] ${bossNameFn(id, 'en')}**${guildLine}`, components: cached.en.components }).catch(() => {}));
+      if (cached.ko) edits.push(cached.ko.edit({ content: `**[**\`출현\`**] ${bossNameFn(id, 'ko')}**${guild ? `\n${tFn('assignedTo', 'ko')}: ${guild}` : ''}`, components: cached.ko.components }).catch(() => {}));
+      if (cached.ja) edits.push(cached.ja.edit({ content: `**[**\`出現\`**] ${bossNameFn(id, 'ja')}**${guild ? `\n${tFn('assignedTo', 'ja')}: ${guild}` : ''}`, components: cached.ja.components }).catch(() => {}));
+        await Promise.all(edits);
+      } else {
+        await sendAllNotifsFn(
+          `**[**\`SPAWNED\`**] ${bossNameFn(id, 'en')}**${guildLine}`,
+          `**[**\`출현\`**] ${bossNameFn(id, 'ko')}**${guild ? `\n${tFn('assignedTo', 'ko')}: ${guild}` : ''}`,
+          `**[**\`出現\`**] ${bossNameFn(id, 'ja')}**${guild ? `\n${tFn('assignedTo', 'ja')}: ${guild}` : ''}`,
+          id, false, ctx
+        );
+      }
+      ctx.notifCache.delete(id);
+    }
+    } catch (e) { console.error(`[NOTIF] loop error for ${id} (${ctx.id}):`, e); }
+  }
+}
+
+export function startNotifLoop() {
   if (notifInterval) clearInterval(notifInterval);
   if (cleanupInterval) clearInterval(cleanupInterval);
   notifInterval = setInterval(async () => {
-    try {
-      const now = Date.now();
-      for (const [id, info] of Object.entries(timers)) {
-        try {
-        if (!info || !info.endTime) continue;
-        if (timers[id] !== info) continue;
-        const boss = BOSSES_DATA.find(b => b.id === id);
-        if (!boss) continue;
-        const hasButtons = !!boss.respawn;
-
-        const remainingMs = info.endTime - now;
-        if (!boss.respawn && remainingMs < -300000) {
-          const next = getNextSpawnFn(boss);
-          if (next) {
-            timers[id] = { endTime: next.getTime(), startedAt: next.getTime(), weekly: true };
-            await saveTimersFn();
-            continue;
-          }
-        }
-
-        const cycleKey = `${id}_${info.endTime}`;
-
-        if (remainingMs > 0 && remainingMs <= 5 * 60 * 1000) {
-          const minutesLeft = Math.ceil(remainingMs / 60000);
-          const spokeKey = `${id}_${info.endTime}_${minutesLeft}`;
-          if (!ttsSpokenMinutes.has(spokeKey)) {
-            ttsSpokenMinutes.set(spokeKey, true);
-            console.log(`[TTS] ${id} minute ${minutesLeft} spokeKey=${spokeKey}`);
-            speakFromNotifLoopFn(bossNameFn(id, config.voiceLang), minutesLeft);
-          }
-        }
-
-        if (remainingMs <= 5 * 60 * 1000 && remainingMs > 0 && !sentSoonNotifs.has(cycleKey)) {
-          sentSoonNotifs.add(cycleKey);
-          console.log(`[NOTIF] ${id} spawning soon cycleKey=${cycleKey}`);
-          const notifId = `${id}_soon_${info.endTime}`;
-          const prefix = config.pingHere ? '\n@here' : '';
-          const guild = getCurrentGuild(id);
-          let guildLine = '';
-          if (guild != null) {
-            guildLine = `\n${tFn('assignedTo', 'en')}: ${guild}`;
-          }
-          const msgs = await sendAllNotifsFn(
-            `**[**\`SPAWNING\`**] ${bossNameFn(id, 'en')}**\nSpawn: ${formatJSTFn(info.endTime, 'en')}${guildLine}${prefix}`,
-            `**[**\`출현 예정\`**] ${bossNameFn(id, 'ko')}**\n출현: ${formatJSTFn(info.endTime, 'ko')}${guild ? `\n${tFn('assignedTo', 'ko')}: ${guild}` : ''}${prefix}`,
-            `**[**\`出現予定\`**] ${bossNameFn(id, 'ja')}**\n出現: ${formatJSTFn(info.endTime, 'ja')}${guild ? `\n${tFn('assignedTo', 'ja')}: ${guild}` : ''}${prefix}`,
-            id, hasButtons
-          );
-          if (timers[id] !== info) continue;
-          if (msgs.en || msgs.ko || msgs.ja) notifMessageCache.set(id, msgs);
-          const data = { bossId: id, type: 'spawning', timestamp: now };
-          for (const l of LANG_LIST) { if (msgs[l]) data[l] = msgs[l].id; }
-          await db.collection('notifications').doc(notifId).set(data);
-        }
-
-        if (remainingMs <= 0 && remainingMs > -300000 && !sentSpawnedNotifs.has(cycleKey)) {
-          if (timers[id] !== info) continue;
-          sentSpawnedNotifs.add(cycleKey);
-          console.log(`[SPAWNED] ${id} cycleKey=${cycleKey}`);
-          speakSpawnedFn(bossNameFn(id, config.voiceLang));
-
-          const guild = getCurrentGuild(id);
-          let guildLine = '';
-          if (guild != null) {
-            guildLine = `\n${tFn('assignedTo', 'en')}: ${guild}`;
-          }
-          const cached = notifMessageCache.get(id);
-          if (cached) {
-            const edits = [];
-          if (cached.en) edits.push(cached.en.edit({ content: `**[**\`SPAWNED\`**] ${bossNameFn(id, 'en')}**${guildLine}`, components: cached.en.components }).catch(() => {}));
-          if (cached.ko) edits.push(cached.ko.edit({ content: `**[**\`출현\`**] ${bossNameFn(id, 'ko')}**${guild ? `\n${tFn('assignedTo', 'ko')}: ${guild}` : ''}`, components: cached.ko.components }).catch(() => {}));
-          if (cached.ja) edits.push(cached.ja.edit({ content: `**[**\`出現\`**] ${bossNameFn(id, 'ja')}**${guild ? `\n${tFn('assignedTo', 'ja')}: ${guild}` : ''}`, components: cached.ja.components }).catch(() => {}));
-            await Promise.all(edits);
-          } else {
-            await sendAllNotifsFn(
-              `**[**\`SPAWNED\`**] ${bossNameFn(id, 'en')}**${guildLine}`,
-              `**[**\`출현\`**] ${bossNameFn(id, 'ko')}**${guild ? `\n${tFn('assignedTo', 'ko')}: ${guild}` : ''}`,
-              `**[**\`出現\`**] ${bossNameFn(id, 'ja')}**${guild ? `\n${tFn('assignedTo', 'ja')}: ${guild}` : ''}`,
-              id
-            );
-          }
-          notifMessageCache.delete(id);
-        }
-        } catch (e) { console.error(`[NOTIF] loop error for ${id}:`, e); }
+    for (const ctx of allTrackerCtxsFn()) {
+      try {
+        await runNotifCycle(ctx);
+      } catch (e) {
+        console.error(`[NOTIF] cycle error (${ctx.id}):`, e);
       }
-    } catch (e) {
-      console.error('Notif loop error:', e);
     }
   }, 3000);
   cleanupInterval = setInterval(() => {
     const now = Date.now();
-    for (const set of [sentSoonNotifs, sentSpawnedNotifs]) {
-      for (const key of set) {
-        const ts = parseInt(key.split('_').pop());
-        if (ts && ts < now - 300000) set.delete(key);
+    for (const ctx of allTrackerCtxsFn()) {
+      for (const set of [ctx.sentSoon, ctx.sentSpawned]) {
+        for (const key of set) {
+          const ts = parseInt(key.split('_').pop());
+          if (ts && ts < now - 300000) set.delete(key);
+        }
       }
-    }
-    for (const [key] of ttsSpokenMinutes) {
-      const parts = key.split('_');
-      const ts = parseInt(parts[1]);
-      if (ts && ts < now - 3600000) ttsSpokenMinutes.delete(key);
+      for (const [key] of ctx.ttsSpoken) {
+        const parts = key.split('_');
+        const ts = parseInt(parts[1]);
+        if (ts && ts < now - 3600000) ctx.ttsSpoken.delete(key);
+      }
     }
   }, 3600000);
 }

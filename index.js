@@ -27,7 +27,7 @@ const db = admin.firestore();
 const TZ = 'Asia/Tokyo';
 const HISTORY_TTL_DAYS = 2;
 
-let config = { channels: { en: null, ko: null, ja: null }, voice: null, voiceLang: 'en', pingHere: false };
+let config = { channels: { en: null, ko: null, ja: null }, voice: null, voiceLang: 'en', pingHere: false, subTrackers: {} };
 let timers = {};
 let notifMessageCache = new Map();
 let sentSoonNotifs = new Set();
@@ -103,6 +103,83 @@ for (const [id, aliases] of Object.entries(CMD_ALIAS)) {
   }
 }
 
+// ─── Tracker contexts (main + sub-trackers) ─────
+function timersDocId(id) { return id === 'main' ? 'global' : `sub_${id}`; }
+
+function makeCtx(id, binding = {}) {
+  const isMain = id === 'main';
+  return {
+    id,
+    timers: isMain ? timers : {},
+    notifCache: isMain ? notifMessageCache : new Map(),
+    sentSoon: isMain ? sentSoonNotifs : new Set(),
+    sentSpawned: isMain ? sentSpawnedNotifs : new Set(),
+    ttsSpoken: isMain ? ttsSpokenMinutes : new Map(),
+    channel: binding.channel || null,
+    lang: binding.lang || null
+  };
+}
+
+const mainCtx = makeCtx('main');
+const trackerCtxs = new Map([['main', mainCtx]]);
+
+function getTrackerCtx(id) { return trackerCtxs.get(String(id)) || null; }
+function allTrackerCtxs() { return [mainCtx, ...[...trackerCtxs.values()].filter(c => c.id !== 'main')]; }
+function hasSubTrackers() { return Object.keys(config.subTrackers || {}).length > 0; }
+
+function getSubBinding(channelId) {
+  if (!channelId) return null;
+  for (const [id, b] of Object.entries(config.subTrackers || {})) {
+    if (b && b.channel === channelId) return getTrackerCtx(id);
+  }
+  return null;
+}
+
+function resolveTrackerByChannel(channelId) {
+  const sub = getSubBinding(channelId);
+  if (sub) return sub;
+  const mainChans = Object.values(config.channels || {}).filter(Boolean);
+  if (mainChans.length === 0 || mainChans.includes(channelId)) return mainCtx;
+  return null;
+}
+
+async function loadTimersInto(ctx) {
+  const doc = await db.collection('timers').doc(timersDocId(ctx.id)).get();
+  const fresh = doc.exists ? (doc.data().timers || {}) : {};
+  for (const key of Object.keys(ctx.timers)) delete ctx.timers[key];
+  Object.assign(ctx.timers, fresh);
+}
+
+async function saveTimers(ctx) {
+  const target = ctx || mainCtx;
+  const clean = {};
+  for (const [id, t] of Object.entries(target.timers)) {
+    clean[id] = {};
+    for (const [k, v] of Object.entries(t)) {
+      if (v !== undefined) clean[id][k] = v;
+    }
+  }
+  await db.collection('timers').doc(timersDocId(target.id)).set({ timers: clean }, { merge: false });
+}
+
+async function rebuildSubTrackers() {
+  for (const id of [...trackerCtxs.keys()]) { if (id !== 'main') trackerCtxs.delete(id); }
+  for (const [id, b] of Object.entries(config.subTrackers || {})) {
+    const ctx = makeCtx(id, b);
+    trackerCtxs.set(ctx.id, ctx);
+    await loadTimersInto(ctx);
+  }
+}
+
+async function createSubTracker(id, binding) {
+  const ctx = makeCtx(String(id), binding);
+  trackerCtxs.set(ctx.id, ctx);
+  await loadTimersInto(ctx);
+  return ctx;
+}
+
+function removeSubTracker(id) { trackerCtxs.delete(String(id)); }
+
 // ─── Utility functions ──────────────────────────
 function findBoss(query, lang = 'en') {
   const q = query.toLowerCase();
@@ -117,8 +194,8 @@ function findBoss(query, lang = 'en') {
   return null;
 }
 
-function getNextSpawn(boss) {
-  const timer = timers[boss.id];
+function getNextSpawn(boss, timersMap = timers) {
+  const timer = timersMap[boss.id];
   if (boss.respawn) {
     if (timer && timer.endTime) return new Date(timer.endTime);
     return null;
@@ -221,6 +298,8 @@ function migrateConfig(data) {
     if (!data.rotation.lastRotatedAt) data.rotation.lastRotatedAt = 0;
   }
 
+  if (!data.subTrackers || typeof data.subTrackers !== 'object') data.subTrackers = {};
+
   return data;
 }
 
@@ -230,37 +309,19 @@ async function loadConfig() {
   if (doc.exists) {
     const data = migrateConfig(doc.data());
     for (const key of Object.keys(config)) delete config[key];
-    Object.assign(config, { channels: { en: null, ko: null, ja: null }, voice: null, voiceLang: 'en' }, data);
+    Object.assign(config, { channels: { en: null, ko: null, ja: null }, voice: null, voiceLang: 'en', subTrackers: {} }, data);
     if (config.voice && typeof config.voice === 'object') config.voice = config.voice.en || null;
   }
-}
-
-async function loadTimers() {
-  const doc = await db.collection('timers').doc('global').get();
-  const fresh = doc.exists ? (doc.data().timers || {}) : {};
-  for (const key of Object.keys(timers)) delete timers[key];
-  Object.assign(timers, fresh);
-}
-
-async function saveTimers() {
-  const clean = {};
-  for (const [id, t] of Object.entries(timers)) {
-    clean[id] = {};
-    for (const [k, v] of Object.entries(t)) {
-      if (v !== undefined) clean[id][k] = v;
-    }
-  }
-  await db.collection('timers').doc('global').set({ timers: clean }, { merge: false });
 }
 
 async function saveConfig() {
   await db.collection('config').doc('discordBot').set(config, { merge: false });
 }
 
-async function addHistory(bossId, type, timestamp) {
+async function addHistory(bossId, type, timestamp, trackerId = 'main') {
   try {
     await db.collection('history').add({
-      bossId, type, timestamp,
+      bossId, type, timestamp, tracker: String(trackerId),
       expiresAt: new Date(timestamp + HISTORY_TTL_DAYS * 86400000)
     });
   } catch (e) { console.error('History err:', e); }
@@ -277,9 +338,10 @@ initNotifs({
   client, config, db, timers, bossName, t, formatJST,
   LANG_LIST, BOSSES_DATA, getNextSpawn,
   notifMessageCache, sentSoonNotifs, sentSpawnedNotifs, ttsSpokenMinutes,
+  mainCtx, allTrackerCtxs,
   speak: (text) => speak(text),
-  speakFromNotifLoop: (bn, m) => speakFromNotifLoop(bn, m),
-  speakSpawned: (bn) => speakSpawned(bn),
+  speakFromNotifLoop: (bn, m, tid) => speakFromNotifLoop(bn, m, tid),
+  speakSpawned: (bn, tid) => speakSpawned(bn, tid),
   saveConfig,
   saveTimers
 });
@@ -296,9 +358,11 @@ initCommands({
   CMD_ALIAS, CMD_MAP,
   sendAllNotifs, removeBossReactions, resetBossCycle,
   saveTimers, addHistory, saveConfig,
-  speakDefeated: (bid, end) => speakDefeated(bid, end, BOSSES_DATA),
-  speakSet: (bid, end) => speakSet(bid, end, BOSSES_DATA),
-  speakMissed: (bid, end) => speakMissed(bid, end, BOSSES_DATA),
+  mainCtx, resolveTrackerByChannel, getSubBinding, hasSubTrackers,
+  createSubTracker, removeSubTracker,
+  speakDefeated: (bid, end, tid) => speakDefeated(bid, end, BOSSES_DATA, tid),
+  speakSet: (bid, end, tid) => speakSet(bid, end, BOSSES_DATA, tid),
+  speakMissed: (bid, end, tid) => speakMissed(bid, end, BOSSES_DATA, tid),
   notifMessageCache
 });
 
@@ -308,8 +372,8 @@ client.on('messageCreate', async (msg) => {
   const content = msg.content.trim().toLowerCase();
   if (!content) return;
 
-  const allowedChannels = Object.values(config.channels).filter(Boolean);
-  if (allowedChannels.length && !allowedChannels.includes(msg.channel.id)) return;
+  const tracker = resolveTrackerByChannel(msg.channel.id);
+  if (!tracker) return;
 
   if (content === 'astra help' || content === 'astra' || content.match(/^astra\s+help$/i)) {
     return msg.reply(buildDetailedHelp('en').slice(0, 2000));
@@ -331,7 +395,7 @@ client.on('messageCreate', async (msg) => {
   })(msg.content.trim().split(/\s+/)[0]);
   if (resolved || content === '/tracker_commands' || /\S/.test(msg.content.trim())) {
     try {
-      await handleCommand(msg);
+      await handleCommand(msg, tracker);
     } catch (e) {
       console.error('Command error:', e);
     }
@@ -349,7 +413,15 @@ client.on('interactionCreate', async (interaction) => {
 client.once('clientReady', async () => {
   console.log(`✅ Bot logged in as ${client.user.tag}`);
   await loadConfig();
-  await loadTimers();
+  await loadTimersInto(mainCtx);
+  await rebuildSubTrackers();
+  {
+    const parts = [`main (${Object.keys(mainCtx.timers).length} timers)`];
+    for (const c of allTrackerCtxs()) {
+      if (c.id !== 'main') parts.push(`sub ${c.id} ${c.lang} #${c.channel} (${Object.keys(c.timers).length} timers)`);
+    }
+    console.log(`✅ Trackers: ${parts.join(' | ')}`);
+  }
 
   async function cleanupHistory() {
     try {
@@ -368,27 +440,33 @@ client.once('clientReady', async () => {
     const snapshot = await db.collection('notifications').where('type', '==', 'spawning').get();
     for (const doc of snapshot.docs) {
       const data = doc.data();
-      const timer = timers[data.bossId];
+      const ctx = getTrackerCtx(data.tracker || 'main');
+      if (!ctx) { await doc.ref.delete(); continue; }
+      const timer = ctx.timers[data.bossId];
       const docEndTime = parseInt(doc.id.split('_').pop());
       if (!docEndTime) continue;
+      const langs = ctx.id === 'main' ? LANG_LIST : [ctx.lang];
+      const channelFor = (l) => ctx.id === 'main'
+        ? (config.channels[l] ? client.channels.cache.get(config.channels[l]) : null)
+        : (ctx.channel ? client.channels.cache.get(ctx.channel) : null);
       if (timer && timer.endTime === docEndTime) {
         const msgs = {};
-        for (const l of LANG_LIST) {
-          if (data[l] && config.channels[l]) {
-            const channel = client.channels.cache.get(config.channels[l]);
+        for (const l of langs) {
+          if (data[l]) {
+            const channel = channelFor(l);
             if (channel) {
               try { msgs[l] = await channel.messages.fetch(data[l]); } catch {}
             }
           }
         }
-        if (msgs.en || msgs.ko || msgs.ja) {
-          notifMessageCache.set(data.bossId, msgs);
-          sentSoonNotifs.add(`${data.bossId}_${docEndTime}`);
+        if (Object.keys(msgs).length > 0) {
+          ctx.notifCache.set(data.bossId, msgs);
+          ctx.sentSoon.add(`${data.bossId}_${docEndTime}`);
         }
       } else {
-        for (const l of LANG_LIST) {
-          if (data[l] && config.channels[l]) {
-            const channel = client.channels.cache.get(config.channels[l]);
+        for (const l of langs) {
+          if (data[l]) {
+            const channel = channelFor(l);
             if (channel) {
               try {
                 const msg = await channel.messages.fetch(data[l]);
@@ -425,7 +503,9 @@ client.once('clientReady', async () => {
       let count = 0;
       for (const doc of oldDocs.docs) {
         const data = doc.data();
-        const timer = timers[data.bossId];
+        const ctx = getTrackerCtx(data.tracker || 'main');
+        if (!ctx) { batch.delete(doc.ref); count++; continue; }
+        const timer = ctx.timers[data.bossId];
         if (data.type === 'spawning' && timer && timer.endTime) continue;
         batch.delete(doc.ref);
         count++;
@@ -636,6 +716,57 @@ client.once('clientReady', async () => {
         type: 3,
         required: true,
         descriptionLocalizations: { ko: '보스를 배정할 길드', ja: 'ボスを割り当てるギルド' }
+      }
+    ]
+  }, {
+    name: 'setsubtracker',
+    nameLocalizations: { ko: '서브트래커설정', ja: 'サブトラッカー設定' },
+    description: 'Bind a channel to an independent sub-tracker (2, 3, 4...)',
+    descriptionLocalizations: { ko: '독립 서브 트래커 채널 연결 (2, 3, 4...)', ja: '独立サブトラッカーのチャンネル設定 (2, 3, 4...)' },
+    options: [
+      {
+        name: 'action',
+        nameLocalizations: { ko: '동작', ja: 'アクション' },
+        description: 'Action (default: set)',
+        type: 3,
+        required: false,
+        descriptionLocalizations: { ko: '동작 (기본: 설정)', ja: 'アクション（デフォルト: 設定）' },
+        choices: [
+          { name: 'Set', value: 'set' },
+          { name: 'Remove', value: 'remove' },
+          { name: 'List', value: 'list' }
+        ]
+      },
+      {
+        name: 'tracker',
+        nameLocalizations: { ko: '트래커', ja: 'トラッカー' },
+        description: 'Tracker number (2, 3, 4...)',
+        type: 4,
+        required: false,
+        min_value: 2,
+        descriptionLocalizations: { ko: '트래커 번호 (2, 3, 4...)', ja: 'トラッカー番号 (2, 3, 4...)' }
+      },
+      {
+        name: 'channel',
+        nameLocalizations: { ko: '채널', ja: 'チャンネル' },
+        description: 'Channel to bind this tracker to',
+        type: 7,
+        required: false,
+        channel_types: [0, 5],
+        descriptionLocalizations: { ko: '이 트래커를 연결할 채널', ja: 'このトラッカーを紐付けるチャンネル' }
+      },
+      {
+        name: 'language',
+        nameLocalizations: { ko: '언어', ja: '言語' },
+        description: 'Notification/list language for this tracker',
+        type: 3,
+        required: false,
+        descriptionLocalizations: { ko: '이 트래커의 알림/목록 언어', ja: 'このトラッカーの通知/一覧言語' },
+        choices: [
+          { name: 'eng', value: 'en' },
+          { name: 'ko', value: 'ko' },
+          { name: 'ja', value: 'ja' }
+        ]
       }
     ]
   }];
