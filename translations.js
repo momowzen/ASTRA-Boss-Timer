@@ -170,16 +170,16 @@ const LANG = {
     subTrackerListTitle: "서브 트래커:",
     bossNames: {
       Venatus: "베나투스", Viorent: "비오렌트", Ego: "에고", Clemantis: "클레멘티스",
-      Livera: "리베라", Araneo: "아라네오", Undomiel: "안두미엘", Saphirus: "사피루스",
-      Neutro: "네우트로", LadyDalia: "레이디 달리아", GeneralAquleus: "장군 아클레우스",
-      Thymele: "튜메레", Amentis: "아멘티스", BaronBraudmore: "남작 브라우드모어",
-      Milavy: "미라베", Wannitas: "와니타스", Metus: "메투스", Duplican: "듀플리칸",
+      Livera: "리베라", Araneo: "아라네오", Undomiel: "언두미엘", Saphirus: "사피루스",
+      Neutro: "네우트로", LadyDalia: "레이디 달리아", GeneralAquleus: "장군 아쿨레우스",
+      Thymele: "튀멜레", Amentis: "아멘티스", BaronBraudmore: "남작 브라우드모어",
+      Milavy: "밀라베", Wannitas: "와니타스", Metus: "메투스", Duplican: "듀플리칸",
       Shuliar: "슈라이어", Ringor: "링고르", Roderick: "로데릭", Gareth: "가레스",
       Titore: "티토르", Larba: "라르바", Catena: "카테나", Auraq: "아우라크",
-      Secreta: "세크레타", Ordo: "오르도", Asta: "아스타", Supore: "스포르",
-      Chaiflock: "샤이플록", Benji: "벤지", Libitina: "리비티나",
+      Secreta: "세크레타", Ordo: "오르도", Asta: "아스타", Supore: "수포르",
+      Chaiflock: "샤이프락", Benji: "벤지", Libitina: "리비티나",
       Rakajeth: "라카제스", Icaruthia: "이카루시아", Motti: "모티",
-      Camalia: "카말리아", Nevaeh: "네바", Tumier: "투미엘",       Lucus: "루크스",
+      Camalia: "카말리아", Nevaeh: "네바", Tumier: "투미어",       Lucus: "루크스",
       Test: "테스트"
     }
   },
