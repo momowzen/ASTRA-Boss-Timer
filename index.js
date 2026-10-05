@@ -30,7 +30,6 @@ const HISTORY_TTL_DAYS = 2;
 let config = { channels: { en: null, ko: null, ja: null }, voice: null, voiceLang: 'en', pingHere: false, subTrackers: {} };
 let timers = {};
 let notifMessageCache = new Map();
-let notifMessageCache10 = new Map();
 let sentSoonNotifs = new Set();
 let sentSoon10Notifs = new Set();
 let sentSpawnedNotifs = new Set();
@@ -114,7 +113,6 @@ function makeCtx(id, binding = {}) {
     id,
     timers: isMain ? timers : {},
     notifCache: isMain ? notifMessageCache : new Map(),
-    notifCache10: isMain ? notifMessageCache10 : new Map(),
     sentSoon: isMain ? sentSoonNotifs : new Set(),
     sentSoon10: isMain ? sentSoon10Notifs : new Set(),
     sentSpawned: isMain ? sentSpawnedNotifs : new Set(),
@@ -441,52 +439,45 @@ client.once('clientReady', async () => {
   setInterval(cleanupHistory, 86400000);
 
   try {
-    for (const notifType of ['spawning', 'soon10']) {
-      const snapshot = await db.collection('notifications').where('type', '==', notifType).get();
-      for (const doc of snapshot.docs) {
-        const data = doc.data();
-        const ctx = getTrackerCtx(data.tracker || 'main');
-        if (!ctx) { await doc.ref.delete(); continue; }
-        const timer = ctx.timers[data.bossId];
-        const docEndTime = parseInt(doc.id.split('_').pop());
-        if (!docEndTime) continue;
-        const langs = ctx.id === 'main' ? LANG_LIST : [ctx.lang];
-        const channelFor = (l) => ctx.id === 'main'
-          ? (config.channels[l] ? client.channels.cache.get(config.channels[l]) : null)
-          : (ctx.channel ? client.channels.cache.get(ctx.channel) : null);
-        if (timer && timer.endTime === docEndTime) {
-          const msgs = {};
-          for (const l of langs) {
-            if (data[l]) {
-              const channel = channelFor(l);
-              if (channel) {
-                try { msgs[l] = await channel.messages.fetch(data[l]); } catch {}
-              }
+    const snapshot = await db.collection('notifications').where('type', '==', 'spawning').get();
+    for (const doc of snapshot.docs) {
+      const data = doc.data();
+      const ctx = getTrackerCtx(data.tracker || 'main');
+      if (!ctx) { await doc.ref.delete(); continue; }
+      const timer = ctx.timers[data.bossId];
+      const docEndTime = parseInt(doc.id.split('_').pop());
+      if (!docEndTime) continue;
+      const langs = ctx.id === 'main' ? LANG_LIST : [ctx.lang];
+      const channelFor = (l) => ctx.id === 'main'
+        ? (config.channels[l] ? client.channels.cache.get(config.channels[l]) : null)
+        : (ctx.channel ? client.channels.cache.get(ctx.channel) : null);
+      if (timer && timer.endTime === docEndTime) {
+        const msgs = {};
+        for (const l of langs) {
+          if (data[l]) {
+            const channel = channelFor(l);
+            if (channel) {
+              try { msgs[l] = await channel.messages.fetch(data[l]); } catch {}
             }
           }
-          if (Object.keys(msgs).length > 0) {
-            if (notifType === 'spawning') {
-              ctx.notifCache.set(data.bossId, msgs);
-              ctx.sentSoon.add(`${data.bossId}_${docEndTime}`);
-            } else {
-              ctx.notifCache10.set(data.bossId, msgs);
-              ctx.sentSoon10.add(`${data.bossId}_${docEndTime}`);
-            }
-          }
-        } else {
-          for (const l of langs) {
-            if (data[l]) {
-              const channel = channelFor(l);
-              if (channel) {
-                try {
-                  const msg = await channel.messages.fetch(data[l]);
-                  await msg.edit({ components: [] });
-                } catch {}
-              }
-            }
-          }
-          await doc.ref.delete();
         }
+        if (Object.keys(msgs).length > 0) {
+          ctx.notifCache.set(data.bossId, msgs);
+          ctx.sentSoon10.add(`${data.bossId}_${docEndTime}`);
+        }
+      } else {
+        for (const l of langs) {
+          if (data[l]) {
+            const channel = channelFor(l);
+            if (channel) {
+              try {
+                const msg = await channel.messages.fetch(data[l]);
+                await msg.edit({ components: [] });
+              } catch {}
+            }
+          }
+        }
+        await doc.ref.delete();
       }
     }
   } catch (e) {
