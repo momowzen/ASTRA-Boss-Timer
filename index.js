@@ -230,6 +230,10 @@ function formatSpawnTime(ms) {
   return `${String(d.getUTCMonth() + 1).padStart(2, '0')}/${String(d.getUTCDate()).padStart(2, '0')} ${String(d.getUTCHours()).padStart(2, '0')}:${String(d.getUTCMinutes()).padStart(2, '0')}`;
 }
 
+function discordTs(ms, style = 'f') {
+  return `<t:${Math.floor(ms / 1000)}:${style}>`;
+}
+
 function formatRemaining(ms) {
   if (ms <= 0) return '00h00m';
   const s = Math.floor(ms / 1000);
@@ -341,6 +345,7 @@ initNotifs({
   LANG_LIST, BOSSES_DATA, getNextSpawn,
   notifMessageCache, sentSoonNotifs, sentSpawnedNotifs, ttsSpokenMinutes,
   mainCtx, allTrackerCtxs,
+  formatTs: discordTs,
   speak: (text) => speak(text),
   speakFromNotifLoop: (bn, m, tid) => speakFromNotifLoop(bn, m, tid),
   speakSpawned: (bn, tid) => speakSpawned(bn, tid),
@@ -357,6 +362,7 @@ initCommands({
   BOSSES_DATA, TZ_OFFSET, LANG_LIST,
   findBoss, getNextSpawn, formatSpawnTime, formatRemaining,
   visualLen, padL, padC, padR, detectLang,
+  formatTs: discordTs,
   CMD_ALIAS, CMD_MAP,
   sendAllNotifs, removeBossReactions, resetBossCycle,
   saveTimers, addHistory, saveConfig,

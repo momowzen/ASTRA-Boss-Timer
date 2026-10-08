@@ -1,7 +1,7 @@
 import { ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder, MessageFlags, EmbedBuilder } from 'discord.js';
 
 let config, timers, db, bossNameFn, tFn, formatJSTFn, BOSSES_DATA, TZ_OFFSET, LANG_LIST;
-let findBossFn, getNextSpawnFn, formatSpawnTimeFn, formatRemainingFn, visualLen, padL, padC, padR, detectLang, CMD_ALIAS, CMD_MAP;
+let findBossFn, getNextSpawnFn, formatSpawnTimeFn, formatRemainingFn, visualLen, padL, padC, padR, detectLang, CMD_ALIAS, CMD_MAP, formatTsFn;
 let sendAllNotifsFn, removeBossReactionsFn, resetBossCycleFn, saveTimersFn, addHistoryFn, saveConfigFn, speakDefeatedFn, speakSetFn, speakMissedFn;
 let mainCtx, resolveTrackerByChannelFn, getSubBindingFn, hasSubTrackersFn, createSubTrackerFn, removeSubTrackerFn;
 
@@ -24,6 +24,7 @@ export function initCommands(deps) {
   padC = deps.padC;
   padR = deps.padR;
   detectLang = deps.detectLang;
+  formatTsFn = deps.formatTs;
   CMD_ALIAS = deps.CMD_ALIAS;
   CMD_MAP = deps.CMD_MAP;
   sendAllNotifsFn = deps.sendAllNotifs;
@@ -95,37 +96,31 @@ const BY = { en: 'By', ko: '기록', ja: '記録' };
 
 function buildEmbeds(rows, title, lang, color) {
   if (!rows.length) return [];
-  const W1 = 12;
-  const pad = (s, w) => s + ' '.repeat(Math.max(0, w - visualLen(s)));
-  const guildLabels = rows.map(r => r.guild != null ? r.guild : '---');
-  const W2 = Math.max(...guildLabels.map(g => visualLen(g)), 4);
-  const lines = [];
-  for (let i = 0; i < rows.length; i++) {
-    const spawnStr = rows[i].spawnMs ? formatSpawnTimeFn(rows[i].spawnMs) : '---';
-    lines.push(`${pad(spawnStr, W1)}${pad(guildLabels[i], W2)}  ${rows[i].name}`);
-  }
-  const description = '```\n' + lines.join('\n') + '\n```';
-  return [new EmbedBuilder().setTitle(title).setDescription(description).setColor(color)];
+  const lines = rows.map(r => {
+    const parts = [`**${r.name}**`];
+    if (r.spawnMs) parts.push(formatTsFn(r.spawnMs, 'f'));
+    if (r.guild != null) parts.push(r.guild);
+    return `• ${parts.join(' — ')}`;
+  });
+  return [new EmbedBuilder().setTitle(title).setDescription(lines.join('\n')).setColor(color)];
 }
 
 function buildGuildEmbeds(rows, title, color) {
   if (!rows.length) return [];
-  const W1 = 12;
-  const pad = (s, w) => s + ' '.repeat(Math.max(0, w - visualLen(s)));
   const lines = rows.map(r => {
-    const spawnStr = r.spawnMs ? formatSpawnTimeFn(r.spawnMs) : '---';
-    return `${pad(spawnStr, W1)}${r.name}`;
+    const parts = [`**${r.name}**`];
+    if (r.spawnMs) parts.push(formatTsFn(r.spawnMs, 'f'));
+    return `• ${parts.join(' — ')}`;
   });
-  const description = '```\n' + lines.join('\n') + '\n```';
-  return [new EmbedBuilder().setTitle(title).setDescription(description).setColor(color)];
+  return [new EmbedBuilder().setTitle(title).setDescription(lines.join('\n')).setColor(color)];
 }
 
 async function sendDefeatNotification(bossId, killedAt, endTime, statusKey, user, tracker = mainCtx) {
   const nameEn = bossNameFn(bossId, 'en');
   const nameKo = bossNameFn(bossId, 'ko');
   const nameJa = bossNameFn(bossId, 'ja');
-  const killEn = formatSpawnTimeFn(killedAt);
-  const nextEn = formatSpawnTimeFn(endTime);
+  const killEn = formatTsFn(killedAt, 'f');
+  const nextEn = formatTsFn(endTime, 'f');
   await sendAllNotifsFn(
     `**[**\`${TAG[statusKey].en}\`**] ${nameEn}**\n${KILL.en}: ${killEn} | ${NEXT.en}: ${nextEn}\n${BY.en}: ${user}`,
     `**[**\`${TAG[statusKey].ko}\`**] ${nameKo}**\n${KILL.ko}: ${killEn} | ${NEXT.ko}: ${nextEn}\n${BY.ko}: ${user}`,
