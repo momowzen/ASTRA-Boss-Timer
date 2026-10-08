@@ -86,13 +86,13 @@ async function handleRotationOnKill(bossId, ctx = mainCtx) {
 // ─── Existing helpers ───────────────────────────
 
 const TAG = {
-  defeated: { en: 'DEFEATED', ko: '처치', ja: '討伐' },
-  manualSet: { en: 'SET', ko: '설정', ja: '設定' },
-  missed: { en: 'MISSED', ko: '놓침', ja: '取り逃し' }
+  defeated: { en: 'DEFEATED', ko: '처치', ja: '討伐', zh: '已击杀' },
+  manualSet: { en: 'SET', ko: '설정', ja: '設定', zh: '已设定' },
+  missed: { en: 'MISSED', ko: '놓침', ja: '取り逃し', zh: '已错过' }
 };
-const KILL = { en: 'Kill', ko: '처치', ja: '討伐' };
-const NEXT = { en: 'Next', ko: '다음', ja: '次回' };
-const BY = { en: 'By', ko: '기록', ja: '記録' };
+const KILL = { en: 'Kill', ko: '처치', ja: '討伐', zh: '击杀' };
+const NEXT = { en: 'Next', ko: '다음', ja: '次回', zh: '下次' };
+const BY = { en: 'By', ko: '기록', ja: '記録', zh: '记录' };
 
 function buildEmbeds(rows, title, lang, color) {
   if (!rows.length) return [];
@@ -119,14 +119,15 @@ async function sendDefeatNotification(bossId, killedAt, endTime, statusKey, user
   const nameEn = bossNameFn(bossId, 'en');
   const nameKo = bossNameFn(bossId, 'ko');
   const nameJa = bossNameFn(bossId, 'ja');
+  const nameZh = bossNameFn(bossId, 'zh');
   const killEn = formatTsFn(killedAt, 'f');
   const nextEn = formatTsFn(endTime, 'f');
-  await sendAllNotifsFn(
-    `**[**\`${TAG[statusKey].en}\`**] ${nameEn}**\n${KILL.en}: ${killEn} | ${NEXT.en}: ${nextEn}\n${BY.en}: ${user}`,
-    `**[**\`${TAG[statusKey].ko}\`**] ${nameKo}**\n${KILL.ko}: ${killEn} | ${NEXT.ko}: ${nextEn}\n${BY.ko}: ${user}`,
-    `**[**\`${TAG[statusKey].ja}\`**] ${nameJa}**\n${KILL.ja}: ${killEn} | ${NEXT.ja}: ${nextEn}\n${BY.ja}: ${user}`,
-    bossId, false, tracker
-  );
+  await sendAllNotifsFn({
+    en: `**[**\`${TAG[statusKey].en}\`**] ${nameEn}**\n${KILL.en}: ${killEn} | ${NEXT.en}: ${nextEn}\n${BY.en}: ${user}`,
+    ko: `**[**\`${TAG[statusKey].ko}\`**] ${nameKo}**\n${KILL.ko}: ${killEn} | ${NEXT.ko}: ${nextEn}\n${BY.ko}: ${user}`,
+    ja: `**[**\`${TAG[statusKey].ja}\`**] ${nameJa}**\n${KILL.ja}: ${killEn} | ${NEXT.ja}: ${nextEn}\n${BY.ja}: ${user}`,
+    zh: `**[**\`${TAG[statusKey].zh}\`**] ${nameZh}**\n${KILL.zh}: ${killEn} | ${NEXT.zh}: ${nextEn}\n${BY.zh}: ${user}`
+  }, bossId, false, tracker);
 }
 
 function mainOnlyGuard(interaction, lang) {
@@ -359,9 +360,71 @@ const HELP_JA = [
   '`へるぷ` / `/へるぷ` → ヘルプを表示します。',
 ].join('\n');
 
+const HELP_ZH = [
+  '**ASTRA 帮助 | 简体中文**',
+  '',
+  '**击杀Boss**',
+  '`击杀 <Boss名称>` / `<Boss名称> 击杀` → 用当前时间记录Boss击杀。',
+  '',
+  '> `击杀 贝纳图斯`',
+  '> `贝纳图斯 击杀`',
+  '',
+  '**设置计时**',
+  '`设置 <Boss名称> [MMDD] <HHMM>` → 手动设置Boss击杀时间。',
+  '`<Boss名称> <HHMM>` / `<Boss名称> <MMDD> <HHMM>` → `设置` 的简写。',
+  '',
+  '> `设置 贝纳图斯 1430`',
+  '> `设置 贝纳图斯 0721 1430`',
+  '> `贝纳图斯 1430`',
+  '> `贝纳图斯 0721 1430`',
+  '',
+  '**计时管理**',
+  '`错过 <Boss名称>` → 记录为错过。击杀时间 = 出现时间 + 2分钟。',
+  '`清除 <Boss名称>` → 删除Boss计时。',
+  '',
+  '> `错过 贝纳图斯`',
+  '> `清除 贝纳图斯`',
+  '',
+  '**Boss列表**',
+  '`列表` → 显示所有Boss计时（未排序）。',
+  '`临近` → 显示未来24小时内出现的Boss。',
+  '`公会` → 按公会分组显示即将出现的Boss。',
+  '',
+  '**追踪器管理**',
+  '`重置_全部 确认` → 重置所有固定周期Boss计时。',
+  '`/导入` → 导入Boss计时。（仅主追踪器）',
+  '`/导出` → 导出Boss计时。（仅主追踪器）',
+  '`/子追踪器设置 action:set tracker:<2+> channel:<频道> language:<en/ko/ja/zh>` → 将频道绑定到独立子追踪器。',
+  '`/子追踪器设置 action:remove tracker:<n>` → 解除子追踪器。',
+  '`/子追踪器设置 action:list` → 显示子追踪器列表。',
+  '',
+  '**公会轮换**',
+  '`/轮换 type:kill` → 启用按次击杀轮换（击杀/设置/错过时切换）。',
+  '`/轮换 type:weekly` → 启用每周轮换（按日程切换）。',
+  '`/轮换 flip_day:<星期> flip_time:<HH:MM>` → 设置每周切换日程（JST）。',
+  '`/轮换 type:none` → 禁用轮换。',
+  '`/轮换 action:clear` → 清除所有轮换数据。',
+  '`/轮换 action:status` → 显示当前轮换状态。',
+  '',
+  '**公会管理**',
+  '`/添加公会 guild_names:<名称1> <名称2>...` → 注册轮换用公会。',
+  '`/添加公会 remove_guild:<名称>` → 移除公会。',
+  '`/添加公会 action:clear` → 清除所有公会。',
+  '`/添加公会 action:list` → 显示已注册公会。',
+  '`/分配Boss guild:<公会>` → 将Boss分配给公会（打开弹窗）。',
+  '',
+  '**通知**',
+  '`/设置` → 配置通知频道。',
+  '`/设置 ping_here:True` → 启用 `@here` 出现提醒。',
+  '',
+  '**帮助**',
+  '`帮助` / `/帮助` → 显示帮助。',
+].join('\n');
+
 export function buildDetailedHelp(lang = 'en') {
   if (lang === 'ko') return HELP_KO;
   if (lang === 'ja') return HELP_JA;
+  if (lang === 'zh') return HELP_ZH;
   return HELP_EN;
 }
 
@@ -375,7 +438,7 @@ export async function handleCommand(msg, tracker = mainCtx) {
     return CMD_MAP[lower] || null;
   })(parts[0]);
 
-  if (resolved && (resolved.lang === lang || resolved.lang === 'en' || parts[0].toLowerCase() === CMD_ALIAS[resolved.id]?.en)) {
+  if (resolved && (resolved.lang === lang || parts[0].toLowerCase() === CMD_ALIAS[resolved.id]?.[resolved.lang] || parts[0].toLowerCase() === CMD_ALIAS[resolved.id]?.en)) {
     const cmd = resolved.id;
     const inSub = tracker.id !== 'main';
 
@@ -450,12 +513,12 @@ export async function handleCommand(msg, tracker = mainCtx) {
     delete tracker.timers[boss.id];
     await saveTimersFn(tracker);
     const user = getUserName(msg.author, msg.member);
-    await sendAllNotifsFn(
-      `**[**\`CLEARED\`**] ${bossNameFn(boss.id, 'en')}**\n${BY.en}: ${user}`,
-      `**[**\`삭제\`**] ${bossNameFn(boss.id, 'ko')}**\n${BY.ko}: ${user}`,
-      `**[**\`解除\`**] ${bossNameFn(boss.id, 'ja')}**\n${BY.ja}: ${user}`,
-      null, false, tracker
-    );
+    await sendAllNotifsFn({
+      en: `**[**\`CLEARED\`**] ${bossNameFn(boss.id, 'en')}**\n${BY.en}: ${user}`,
+      ko: `**[**\`삭제\`**] ${bossNameFn(boss.id, 'ko')}**\n${BY.ko}: ${user}`,
+      ja: `**[**\`解除\`**] ${bossNameFn(boss.id, 'ja')}**\n${BY.ja}: ${user}`,
+      zh: `**[**\`已清除\`**] ${bossNameFn(boss.id, 'zh')}**\n${BY.zh}: ${user}`
+    }, null, false, tracker);
     return;
   }
 
@@ -547,12 +610,12 @@ export async function handleCommand(msg, tracker = mainCtx) {
     }
     await saveTimersFn(tracker);
     const user = getUserName(msg.author, msg.member);
-    await sendAllNotifsFn(
-      `**[**\`RESET\`**] Boss Tracker**\nAll interval timers reset.\n${BY.en}: ${user}`,
-      `**[**\`초기화\`**] 보스 타이머**\n모든 고정 주기 타이머가 초기화되었습니다.\n${BY.ko}: ${user}`,
-      `**[**\`リセット\`**] ボスタイマー**\nすべての固定周期タイマーをリセットしました。\n${BY.ja}: ${user}`,
-      null, false, tracker
-    );
+    await sendAllNotifsFn({
+      en: `**[**\`RESET\`**] Boss Tracker**\nAll interval timers reset.\n${BY.en}: ${user}`,
+      ko: `**[**\`초기화\`**] 보스 타이머**\n모든 고정 주기 타이머가 초기화되었습니다.\n${BY.ko}: ${user}`,
+      ja: `**[**\`リセット\`**] ボスタイマー**\nすべての固定周期タイマーをリセットしました。\n${BY.ja}: ${user}`,
+      zh: `**[**\`已重置\`**] Boss Tracker**\n所有固定周期计时已重置。\n${BY.zh}: ${user}`
+    }, null, false, tracker);
     return;
   }
 
@@ -780,7 +843,7 @@ export async function handleCommand(msg, tracker = mainCtx) {
   }
   }
 
-  if (resolved && !(resolved.lang === lang || resolved.lang === 'en' || parts[0].toLowerCase() === CMD_ALIAS[resolved.id]?.en)) {
+  if (resolved && !(resolved.lang === lang || parts[0].toLowerCase() === CMD_ALIAS[resolved.id]?.[resolved.lang] || parts[0].toLowerCase() === CMD_ALIAS[resolved.id]?.en)) {
     return msg.reply(`${tFn('helpTitle', lang)}\n${tFn('helpDesc', lang)}`);
   }
 
@@ -806,7 +869,7 @@ export async function handleCommand(msg, tracker = mainCtx) {
     }
 
     const last = parts[parts.length - 1].toLowerCase();
-    if (last === 'cut' || last === '컷' || last === 'カット') {
+    if (last === 'cut' || last === '컷' || last === 'カット' || last === '击杀') {
       const query = parts.slice(0, -1).join(' ');
       const boss = findBossFn(query, lang);
       if (!boss) return msg.reply(`${tFn('bossNotFound', lang)} ${query}`);
@@ -828,7 +891,7 @@ export async function handleCommand(msg, tracker = mainCtx) {
 }
 
 export async function handleInteraction(interaction) {
-  const localeLang = interaction.locale?.startsWith('ko') ? 'ko' : interaction.locale?.startsWith('ja') ? 'ja' : 'en';
+  const localeLang = interaction.locale?.startsWith('ko') ? 'ko' : interaction.locale?.startsWith('ja') ? 'ja' : interaction.locale?.startsWith('zh') ? 'zh' : 'en';
 
   if (interaction.isModalSubmit() && interaction.customId === 'importModal') {
     const guard = mainOnlyGuard(interaction, localeLang);
@@ -861,7 +924,7 @@ export async function handleInteraction(interaction) {
     }
     for (const id of updatedBosses) removeBossReactionsFn(id).catch(() => {});
     await saveTimersFn();
-    return interaction.reply({ content: tFn('importSuccess', interaction.locale?.startsWith('ko') ? 'ko' : interaction.locale?.startsWith('ja') ? 'ja' : 'en'), flags: MessageFlags.Ephemeral });
+    return interaction.reply({ content: tFn('importSuccess', interaction.locale?.startsWith('ko') ? 'ko' : interaction.locale?.startsWith('ja') ? 'ja' : interaction.locale?.startsWith('zh') ? 'zh' : 'en'), flags: MessageFlags.Ephemeral });
   }
 
   if (interaction.isModalSubmit() && interaction.customId.startsWith('assignbossModal_')) {
@@ -869,7 +932,7 @@ export async function handleInteraction(interaction) {
     if (guard) return interaction.reply({ content: guard, flags: MessageFlags.Ephemeral });
     const guildName = interaction.customId.replace('assignbossModal_', '');
     const text = interaction.fields.getTextInputValue('bossNames');
-    const lang = interaction.locale?.startsWith('ko') ? 'ko' : interaction.locale?.startsWith('ja') ? 'ja' : 'en';
+    const lang = interaction.locale?.startsWith('ko') ? 'ko' : interaction.locale?.startsWith('ja') ? 'ja' : interaction.locale?.startsWith('zh') ? 'zh' : 'en';
 
     const rot = config.rotation || {};
     const order = rot.order || [];
@@ -904,7 +967,7 @@ export async function handleInteraction(interaction) {
   if (interaction.isCommand()) {
     const cmdName = interaction.commandName;
     const isSetup = cmdName === 'setup' || cmdName === '설정' || cmdName === 'せってい';
-    const helpLang = interaction.locale?.startsWith('ko') ? 'ko' : interaction.locale?.startsWith('ja') ? 'ja' : 'en';
+    const helpLang = interaction.locale?.startsWith('ko') ? 'ko' : interaction.locale?.startsWith('ja') ? 'ja' : interaction.locale?.startsWith('zh') ? 'zh' : 'en';
     const isHelp = cmdName === 'astra' || cmdName === 'tracker_commands' || cmdName === '도움말' || cmdName === 'へるぷ';
     const isImport = cmdName === 'import' || cmdName === '가져오기' || cmdName === 'いんぽーと';
     const isExport = cmdName === 'export' || cmdName === '내보내기' || cmdName === 'エクスポート';
@@ -996,12 +1059,14 @@ export async function handleInteraction(interaction) {
       const enCh = interaction.options.getChannel('english_channel');
       const koCh = interaction.options.getChannel('korean_channel');
       const jaCh = interaction.options.getChannel('japanese_channel');
+      const zhCh = interaction.options.getChannel('chinese_channel');
       const voiceCh = interaction.options.getChannel('voice_channel');
       const voiceLang = interaction.options.getString('voice_language') || config.voiceLang || 'en';
       const pingHere = interaction.options.getBoolean('ping_here') ?? config.pingHere;
       if (enCh) config.channels.en = enCh.id;
       if (koCh) config.channels.ko = koCh.id;
       if (jaCh) config.channels.ja = jaCh.id;
+      if (zhCh) config.channels.zh = zhCh.id;
       if (voiceCh) { config.voice = voiceCh.id; }
       config.voiceLang = voiceLang;
       config.pingHere = pingHere;

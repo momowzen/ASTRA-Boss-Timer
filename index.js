@@ -27,7 +27,7 @@ const db = admin.firestore();
 const TZ = 'Asia/Tokyo';
 const HISTORY_TTL_DAYS = 2;
 
-let config = { channels: { en: null, ko: null, ja: null }, voice: null, voiceLang: 'en', pingHere: false, subTrackers: {} };
+let config = { channels: { en: null, ko: null, ja: null, zh: null }, voice: null, voiceLang: 'en', pingHere: false, subTrackers: {} };
 let timers = {};
 let notifMessageCache = new Map();
 let sentSoonNotifs = new Set();
@@ -38,31 +38,36 @@ let ttsSpokenMinutes = new Map();
 const TTS_SPAWN_IN = {
   en: (n, m) => `${n} spawns in ${m} minute${m !== 1 ? 's' : ''}.`,
   ko: (n, m) => `${n}가 ${m}분 후 출현합니다.`,
-  ja: (n, m) => `${n}は${m}分後に出現します。`
+  ja: (n, m) => `${n}は${m}分後に出現します。`,
+  zh: (n, m) => `${n}将在${m}分钟后出现。`
 };
 
 const TTS_SPAWNED = {
   en: (n) => `${n} has spawned.`,
   ko: (n) => `${n}가 출현했습니다.`,
-  ja: (n) => `${n}が出現しました。`
+  ja: (n) => `${n}が出現しました。`,
+  zh: (n) => `${n}已出现。`
 };
 
 const TTS_DEFEATED = {
   en: (n, d, t) => `${n} defeated.`,
   ko: (n, d, t) => `${n} 처치 완료.`,
-  ja: (n, d, t) => `${n}討伐完了。`
+  ja: (n, d, t) => `${n}討伐完了。`,
+  zh: (n, d, t) => `${n}已击杀。`
 };
 
 const TTS_SET = {
   en: (n, d, t) => `${n} manually set.`,
   ko: (n, d, t) => `${n} 수동 설정 완료.`,
-  ja: (n, d, t) => `${n}手動設定完了。`
+  ja: (n, d, t) => `${n}手動設定完了。`,
+  zh: (n, d, t) => `${n}已设定。`
 };
 
 const TTS_MISSED = {
   en: (n, d, t) => `${n} missed.`,
   ko: (n, d, t) => `${n} 놓침.`,
-  ja: (n, d, t) => `${n}見逃し。`
+  ja: (n, d, t) => `${n}見逃し。`,
+  zh: (n, d, t) => `${n}已错过。`
 };
 
 const WORLD_BOSS_TIMES = [
@@ -74,27 +79,29 @@ const TTS_WORLD_BOSS_IN = {
   en: (m) => `World Boss spawns in ${m} minute${m !== 1 ? 's' : ''}.`,
   ko: (m) => `월드 보스가 ${m}분 후 출현합니다.`,
   ja: (m) => `ワールドボスは${m}分後に出現します。`,
+  zh: (m) => `世界Boss将在${m}分钟后出现。`,
 };
 
 const TTS_WORLD_BOSS_SPAWNED = {
   en: 'World Boss has spawned.',
   ko: '월드 보스가 출현했습니다.',
   ja: 'ワールドボスが出現しました。',
+  zh: '世界Boss已出现。',
 };
 
 const CMD_ALIAS = {
-  kill: { en: 'kill', ko: '처치', ja: '討伐' },
-  set: { en: 'set', ko: '설정', ja: '設定' },
-  miss: { en: 'miss', ko: '놓침', ja: '逃し' },
-  clear: { en: 'clear', ko: '초기화', ja: '解除' },
-  bl: { en: 'bl', ko: '목록', ja: '一覧' },
-  ut: { en: 'ut', ko: '곧', ja: 'まもなく' },
-  reset_tracker: { en: 'reset_tracker', ko: '초기화_전체', ja: '全解除' },
-  rotation: { en: 'rotation', ko: '로테이션', ja: 'ローテーション' },
-  guildnames: { en: 'guildnames', ko: '길드이름', ja: 'ギルド名' },
-  ug: { en: 'ug', ko: '길드', ja: 'ギルド' },
-  addguild: { en: 'addguild', ko: '길드추가', ja: 'ギルド追加' },
-  assignboss: { en: 'assignboss', ko: '보스배정', ja: 'ボス割当' }
+  kill: { en: 'kill', ko: '처치', ja: '討伐', zh: '击杀' },
+  set: { en: 'set', ko: '설정', ja: '設定', zh: '设置' },
+  miss: { en: 'miss', ko: '놓침', ja: '逃し', zh: '错过' },
+  clear: { en: 'clear', ko: '초기화', ja: '解除', zh: '清除' },
+  bl: { en: 'bl', ko: '목록', ja: '一覧', zh: '列表' },
+  ut: { en: 'ut', ko: '곧', ja: 'まもなく', zh: '临近' },
+  reset_tracker: { en: 'reset_tracker', ko: '초기화_전체', ja: '全解除', zh: '重置_全部' },
+  rotation: { en: 'rotation', ko: '로테이션', ja: 'ローテーション', zh: '轮换' },
+  guildnames: { en: 'guildnames', ko: '길드이름', ja: 'ギルド名', zh: '公会名' },
+  ug: { en: 'ug', ko: '길드', ja: 'ギルド', zh: '公会' },
+  addguild: { en: 'addguild', ko: '길드추가', ja: 'ギルド追加', zh: '添加公会' },
+  assignboss: { en: 'assignboss', ko: '보스배정', ja: 'ボス割当', zh: '分配Boss' }
 };
 
 let CMD_MAP = {};
@@ -221,7 +228,7 @@ function getNextSpawn(boss, timersMap = timers) {
 }
 
 function formatJST(ms, lang = 'en') {
-  const locales = { en: 'en-US', ko: 'ko-KR', ja: 'ja-JP' };
+  const locales = { en: 'en-US', ko: 'ko-KR', ja: 'ja-JP', zh: 'zh-CN' };
   return new Date(ms).toLocaleString(locales[lang] || 'en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: lang !== 'ja', timeZone: TZ });
 }
 
@@ -255,9 +262,13 @@ function padC(str, w) { const p = Math.max(0, w - visualLen(str)), l = Math.floo
 
 function detectLang(content) {
   const korean = (content.match(/[가-힣]/g) || []).length;
-  const japanese = (content.match(/[ぁ-んァ-ン一-龯]/g) || []).length;
-  if (japanese > korean) return 'ja';
-  if (korean > 0) return 'ko';
+  const kana = (content.match(/[ぁ-んァ-ン]/g) || []).length;
+  const han = (content.match(/[\u4e00-\u9fff]/g) || []).length;
+  const simplified = (content.match(/[贝莱儿丝欧图亚军纳赛毕苏测试达尔库鲁玛温维爱诺弥清列重配击设错轮会临预现将记录认导]/g) || []).length;
+  if (korean > 0 && korean >= kana) return 'ko';
+  if (kana > 0) return 'ja';
+  if (simplified > 0) return 'zh';
+  if (han > 0) return 'ja';
   return 'en';
 }
 
@@ -306,6 +317,9 @@ function migrateConfig(data) {
 
   if (!data.subTrackers || typeof data.subTrackers !== 'object') data.subTrackers = {};
 
+  if (!data.channels || typeof data.channels !== 'object') data.channels = { en: null, ko: null, ja: null, zh: null };
+  else if (!('zh' in data.channels)) data.channels.zh = null;
+
   return data;
 }
 
@@ -315,7 +329,7 @@ async function loadConfig() {
   if (doc.exists) {
     const data = migrateConfig(doc.data());
     for (const key of Object.keys(config)) delete config[key];
-    Object.assign(config, { channels: { en: null, ko: null, ja: null }, voice: null, voiceLang: 'en', subTrackers: {} }, data);
+    Object.assign(config, { channels: { en: null, ko: null, ja: null, zh: null }, voice: null, voiceLang: 'en', subTrackers: {} }, data);
     if (config.voice && typeof config.voice === 'object') config.voice = config.voice.en || null;
   }
 }
@@ -391,6 +405,9 @@ client.on('messageCreate', async (msg) => {
   }
   if (content === 'へるぷ') {
     return msg.reply(buildDetailedHelp('ja').slice(0, 2000));
+  }
+  if (content === '帮助' || content === '说明') {
+    return msg.reply(buildDetailedHelp('zh').slice(0, 2000));
   }
 
   if (content === '/setup' || content.startsWith('/setup ')) {
@@ -575,7 +592,7 @@ client.once('clientReady', async () => {
               }
               return lines.join('\n');
             };
-            await sendAllNotifsFn(buildLine('en'), buildLine('ko'), buildLine('ja'));
+            await sendAllNotifsFn({ en: buildLine('en'), ko: buildLine('ko'), ja: buildLine('ja'), zh: buildLine('zh') });
           }
         }
       }
@@ -586,52 +603,54 @@ client.once('clientReady', async () => {
 
   const commands = [{
     name: 'setup',
-    nameLocalizations: { ko: '설정', ja: 'せってい' },
+    nameLocalizations: { ko: '설정', ja: 'せってい', 'zh-CN': '设置' },
     description: 'Configure notification channels',
-    descriptionLocalizations: { ko: '알림 채널 설정', ja: '通知チャンネルを設定' },
+    descriptionLocalizations: { ko: '알림 채널 설정', ja: '通知チャンネルを設定', 'zh-CN': '配置通知频道' },
     options: [
-      { name: 'english_channel', nameLocalizations: { ko: '영어_채널', ja: '英語チャンネル' }, description: 'English notification channel', type: 7, required: false, descriptionLocalizations: { ko: '영어 알림 채널', ja: '英語通知チャンネル' } },
-      { name: 'korean_channel', nameLocalizations: { ko: '한국어_채널', ja: '韓国語チャンネル' }, description: 'Korean notification channel', type: 7, required: false, descriptionLocalizations: { ko: '한국어 알림 채널', ja: '韓国語通知チャンネル' } },
-      { name: 'japanese_channel', nameLocalizations: { ko: '일본어_채널', ja: '日本語チャンネル' }, description: 'Japanese notification channel', type: 7, required: false, descriptionLocalizations: { ko: '일본어 알림 채널', ja: '日本語通知チャンネル' } },
-      { name: 'voice_channel', nameLocalizations: { ko: '음성_채널', ja: '音声チャンネル' }, description: 'Voice channel (optional)', type: 7, required: false, descriptionLocalizations: { ko: '음성 채널 (선택)', ja: '音声チャンネル（任意）' } },
-      { name: 'voice_language', nameLocalizations: { ko: '음성_언어', ja: '音声言語' }, description: 'Voice language', type: 3, required: false,
-        descriptionLocalizations: { ko: '음성 언어', ja: '音声言語' },
+      { name: 'english_channel', nameLocalizations: { ko: '영어_채널', ja: '英語チャンネル', 'zh-CN': '英语频道' }, description: 'English notification channel', type: 7, required: false, descriptionLocalizations: { ko: '영어 알림 채널', ja: '英語通知チャンネル', 'zh-CN': '英语通知频道' } },
+      { name: 'korean_channel', nameLocalizations: { ko: '한국어_채널', ja: '韓国語チャンネル', 'zh-CN': '韩语频道' }, description: 'Korean notification channel', type: 7, required: false, descriptionLocalizations: { ko: '한국어 알림 채널', ja: '韓国語通知チャンネル', 'zh-CN': '韩语通知频道' } },
+      { name: 'japanese_channel', nameLocalizations: { ko: '일본어_채널', ja: '日本語チャンネル', 'zh-CN': '日语频道' }, description: 'Japanese notification channel', type: 7, required: false, descriptionLocalizations: { ko: '일본어 알림 채널', ja: '日本語通知チャンネル', 'zh-CN': '日语通知频道' } },
+      { name: 'chinese_channel', nameLocalizations: { ko: '중국어_채널', ja: '中国語チャンネル', 'zh-CN': '中文频道' }, description: 'Chinese notification channel', type: 7, required: false, descriptionLocalizations: { ko: '중국어 알림 채널', ja: '中国語通知チャンネル', 'zh-CN': '中文通知频道' } },
+      { name: 'voice_channel', nameLocalizations: { ko: '음성_채널', ja: '音声チャンネル', 'zh-CN': '语音频道' }, description: 'Voice channel (optional)', type: 7, required: false, descriptionLocalizations: { ko: '음성 채널 (선택)', ja: '音声チャンネル（任意）', 'zh-CN': '语音频道（可选）' } },
+      { name: 'voice_language', nameLocalizations: { ko: '음성_언어', ja: '音声言語', 'zh-CN': '语音语言' }, description: 'Voice language', type: 3, required: false,
+        descriptionLocalizations: { ko: '음성 언어', ja: '音声言語', 'zh-CN': '语音语言' },
         choices: [
           { name: 'English', value: 'en' },
           { name: 'Korean', value: 'ko' },
-          { name: 'Japanese', value: 'ja' }
+          { name: 'Japanese', value: 'ja' },
+          { name: 'Chinese', value: 'zh' }
         ]
       },
-      { name: 'ping_here', nameLocalizations: { ko: '여기_멘션', ja: 'ここメンション' }, description: '@here ping on spawn warnings', type: 5, required: false, descriptionLocalizations: { ko: '출현 알림 @here 멘션', ja: '出現通知で@hereメンション' } }
+      { name: 'ping_here', nameLocalizations: { ko: '여기_멘션', ja: 'ここメンション', 'zh-CN': '此处提及' }, description: '@here ping on spawn warnings', type: 5, required: false, descriptionLocalizations: { ko: '출현 알림 @here 멘션', ja: '出現通知で@hereメンション', 'zh-CN': '出现提醒时@here' } }
     ]
   }, {
     name: 'astra',
-    nameLocalizations: { ko: '도움말', ja: 'へるぷ' },
+    nameLocalizations: { ko: '도움말', ja: 'へるぷ', 'zh-CN': '帮助' },
     description: 'Show all tracker commands with detailed guide',
-    descriptionLocalizations: { ko: '모든 명령어와 상세 가이드 표시', ja: '全コマンドと詳細ガイドを表示' }
+    descriptionLocalizations: { ko: '모든 명령어와 상세 가이드 표시', ja: '全コマンドと詳細ガイドを表示', 'zh-CN': '显示所有命令和详细指南' }
   }, {
     name: 'import',
-    nameLocalizations: { ko: '가져오기', ja: 'いんぽーと' },
+    nameLocalizations: { ko: '가져오기', ja: 'いんぽーと', 'zh-CN': '导入' },
     description: 'Import boss timers from paste data',
-    descriptionLocalizations: { ko: '붙여넣기 데이터에서 보스 타이머 가져오기', ja: '貼り付けデータからボスタイマーをインポート' }
+    descriptionLocalizations: { ko: '붙여넣기 데이터에서 보스 타이머 가져오기', ja: '貼り付けデータからボスタイマーをインポート', 'zh-CN': '从粘贴数据导入Boss计时' }
   }, {
     name: 'export',
-    nameLocalizations: { ko: '내보내기', ja: 'エクスポート' },
+    nameLocalizations: { ko: '내보내기', ja: 'エクスポート', 'zh-CN': '导出' },
     description: 'Export all boss timers as text',
-    descriptionLocalizations: { ko: '모든 보스 타이머를 텍스트로 내보내기', ja: '全ボスタイマーをテキストでエクスポート' }
+    descriptionLocalizations: { ko: '모든 보스 타이머를 텍스트로 내보내기', ja: '全ボスタイマーをテキストでエクスポート', 'zh-CN': '将所有Boss计时导出为文本' }
   }, {
     name: 'rotation',
-    nameLocalizations: { ko: '로테이션', ja: 'ローテーション' },
+    nameLocalizations: { ko: '로테이션', ja: 'ローテーション', 'zh-CN': '轮换' },
     description: 'Configure guild rotation',
-    descriptionLocalizations: { ko: '길드 로테이션 설정', ja: 'ギルドローテーション設定' },
+    descriptionLocalizations: { ko: '길드 로테이션 설정', ja: 'ギルドローテーション設定', 'zh-CN': '配置公会轮换' },
     options: [
       {
         name: 'type',
-        nameLocalizations: { ko: '유형', ja: 'タイプ' },
+        nameLocalizations: { ko: '유형', ja: 'タイプ', 'zh-CN': '类型' },
         description: 'Set rotation type',
         type: 3,
         required: false,
-        descriptionLocalizations: { ko: '로테이션 유형 설정', ja: 'ローテーションタイプ設定' },
+        descriptionLocalizations: { ko: '로테이션 유형 설정', ja: 'ローテーションタイプ設定', 'zh-CN': '设置轮换类型' },
         choices: [
           { name: 'kill', value: 'kill' },
           { name: 'weekly', value: 'weekly' },
@@ -640,11 +659,11 @@ client.once('clientReady', async () => {
       },
       {
         name: 'action',
-        nameLocalizations: { ko: '동작', ja: 'アクション' },
+        nameLocalizations: { ko: '동작', ja: 'アクション', 'zh-CN': '动作' },
         description: 'Rotation action',
         type: 3,
         required: false,
-        descriptionLocalizations: { ko: '로테이션 동작', ja: 'ローテーションアクション' },
+        descriptionLocalizations: { ko: '로테이션 동작', ja: 'ローテーションアクション', 'zh-CN': '轮换操作' },
         choices: [
           { name: 'clear', value: 'clear' },
           { name: 'status', value: 'status' }
@@ -652,11 +671,11 @@ client.once('clientReady', async () => {
       },
       {
         name: 'flip_day',
-        nameLocalizations: { ko: '전환_요일', ja: '切替曜日' },
+        nameLocalizations: { ko: '전환_요일', ja: '切替曜日', 'zh-CN': '切换星期' },
         description: 'Weekly flip day (for flipday)',
         type: 3,
         required: false,
-        descriptionLocalizations: { ko: '주간 전환 요일', ja: '週間切替曜日' },
+        descriptionLocalizations: { ko: '주간 전환 요일', ja: '週間切替曜日', 'zh-CN': '每周切换的星期' },
         choices: [
           { name: 'Sun', value: 'sun' },
           { name: 'Mon', value: 'mon' },
@@ -669,26 +688,26 @@ client.once('clientReady', async () => {
       },
       {
         name: 'flip_time',
-        nameLocalizations: { ko: '전환_시간', ja: '切替時間' },
+        nameLocalizations: { ko: '전환_시간', ja: '切替時間', 'zh-CN': '切换时间' },
         description: 'Weekly flip time HH:MM (JST)',
         type: 3,
         required: false,
-        descriptionLocalizations: { ko: '주간 전환 시간 HH:MM (JST)', ja: '週間切替時間 HH:MM (JST)' }
+        descriptionLocalizations: { ko: '주간 전환 시간 HH:MM (JST)', ja: '週間切替時間 HH:MM (JST)', 'zh-CN': '每周切换时间 HH:MM (JST)' }
       }
     ]
   }, {
     name: 'addguild',
-    nameLocalizations: { ko: '길드추가', ja: 'ギルド追加' },
+    nameLocalizations: { ko: '길드추가', ja: 'ギルド追加', 'zh-CN': '添加公会' },
     description: 'Register guilds for rotation',
-    descriptionLocalizations: { ko: '로테이션용 길드 등록', ja: 'ローテーション用ギルド登録' },
+    descriptionLocalizations: { ko: '로테이션용 길드 등록', ja: 'ローテーション用ギルド登録', 'zh-CN': '为轮换注册公会' },
     options: [
       {
         name: 'action',
-        nameLocalizations: { ko: '동작', ja: 'アクション' },
+        nameLocalizations: { ko: '동작', ja: 'アクション', 'zh-CN': '动作' },
         description: 'Action to perform',
         type: 3,
         required: false,
-        descriptionLocalizations: { ko: '수행할 동작', ja: '実行するアクション' },
+        descriptionLocalizations: { ko: '수행할 동작', ja: '実行するアクション', 'zh-CN': '要执行的操作' },
         choices: [
           { name: 'clear', value: 'clear' },
           { name: 'list', value: 'list' }
@@ -696,49 +715,49 @@ client.once('clientReady', async () => {
       },
       {
         name: 'remove_guild',
-        nameLocalizations: { ko: '제거할_길드', ja: '削除ギルド' },
+        nameLocalizations: { ko: '제거할_길드', ja: '削除ギルド', 'zh-CN': '要移除的公会' },
         description: 'Guild name to remove',
         type: 3,
         required: false,
-        descriptionLocalizations: { ko: '제거할 길드 이름', ja: '削除するギルド名' }
+        descriptionLocalizations: { ko: '제거할 길드 이름', ja: '削除するギルド名', 'zh-CN': '要移除的公会名' }
       },
       {
         name: 'guild_names',
-        nameLocalizations: { ko: '길드_이름들', ja: 'ギルド名' },
+        nameLocalizations: { ko: '길드_이름들', ja: 'ギルド名', 'zh-CN': '公会名称' },
         description: 'Guild names to add (space-separated)',
         type: 3,
         required: false,
-        descriptionLocalizations: { ko: '추가할 길드 이름 (공백 구분)', ja: '追加するギルド名（スペース区切り）' }
+        descriptionLocalizations: { ko: '추가할 길드 이름 (공백 구분)', ja: '追加するギルド名（スペース区切り）', 'zh-CN': '要添加的公会名（空格分隔）' }
       }
     ]
   }, {
     name: 'assignboss',
-    nameLocalizations: { ko: '보스배정', ja: 'ボス割当' },
+    nameLocalizations: { ko: '보스배정', ja: 'ボス割当', 'zh-CN': '分配Boss' },
     description: 'Assign bosses to a guild',
-    descriptionLocalizations: { ko: '길드에 보스 배정', ja: 'ギルドにボスを割り当て' },
+    descriptionLocalizations: { ko: '길드에 보스 배정', ja: 'ギルドにボスを割り当て', 'zh-CN': '将Boss分配给公会' },
     options: [
       {
         name: 'guild',
-        nameLocalizations: { ko: '길드', ja: 'ギルド' },
+        nameLocalizations: { ko: '길드', ja: 'ギルド', 'zh-CN': '公会' },
         description: 'Guild name to assign bosses to',
         type: 3,
         required: true,
-        descriptionLocalizations: { ko: '보스를 배정할 길드', ja: 'ボスを割り当てるギルド' }
+        descriptionLocalizations: { ko: '보스를 배정할 길드', ja: 'ボスを割り当てるギルド', 'zh-CN': '要分配Boss的公会' }
       }
     ]
   }, {
     name: 'setsubtracker',
-    nameLocalizations: { ko: '서브트래커설정', ja: 'サブトラッカー設定' },
+    nameLocalizations: { ko: '서브트래커설정', ja: 'サブトラッカー設定', 'zh-CN': '子追踪器设置' },
     description: 'Bind a channel to an independent sub-tracker (2, 3, 4...)',
-    descriptionLocalizations: { ko: '독립 서브 트래커 채널 연결 (2, 3, 4...)', ja: '独立サブトラッカーのチャンネル設定 (2, 3, 4...)' },
+    descriptionLocalizations: { ko: '독립 서브 트래커 채널 연결 (2, 3, 4...)', ja: '独立サブトラッカーのチャンネル設定 (2, 3, 4...)', 'zh-CN': '将频道绑定到独立子追踪器 (2, 3, 4...)' },
     options: [
       {
         name: 'action',
-        nameLocalizations: { ko: '동작', ja: 'アクション' },
+        nameLocalizations: { ko: '동작', ja: 'アクション', 'zh-CN': '动作' },
         description: 'Action (default: set)',
         type: 3,
         required: false,
-        descriptionLocalizations: { ko: '동작 (기본: 설정)', ja: 'アクション（デフォルト: 設定）' },
+        descriptionLocalizations: { ko: '동작 (기본: 설정)', ja: 'アクション（デフォルト: 設定）', 'zh-CN': '操作（默认：set）' },
         choices: [
           { name: 'Set', value: 'set' },
           { name: 'Remove', value: 'remove' },
@@ -747,33 +766,34 @@ client.once('clientReady', async () => {
       },
       {
         name: 'tracker',
-        nameLocalizations: { ko: '트래커', ja: 'トラッカー' },
+        nameLocalizations: { ko: '트래커', ja: 'トラッカー', 'zh-CN': '追踪器' },
         description: 'Tracker number (2, 3, 4...)',
         type: 4,
         required: false,
         min_value: 2,
-        descriptionLocalizations: { ko: '트래커 번호 (2, 3, 4...)', ja: 'トラッカー番号 (2, 3, 4...)' }
+        descriptionLocalizations: { ko: '트래커 번호 (2, 3, 4...)', ja: 'トラッカー番号 (2, 3, 4...)', 'zh-CN': '追踪器编号 (2, 3, 4...)' }
       },
       {
         name: 'channel',
-        nameLocalizations: { ko: '채널', ja: 'チャンネル' },
+        nameLocalizations: { ko: '채널', ja: 'チャンネル', 'zh-CN': '频道' },
         description: 'Channel to bind this tracker to',
         type: 7,
         required: false,
         channel_types: [0, 5],
-        descriptionLocalizations: { ko: '이 트래커를 연결할 채널', ja: 'このトラッカーを紐付けるチャンネル' }
+        descriptionLocalizations: { ko: '이 트래커를 연결할 채널', ja: 'このトラッカーを紐付けるチャンネル', 'zh-CN': '要绑定的频道' }
       },
       {
         name: 'language',
-        nameLocalizations: { ko: '언어', ja: '言語' },
+        nameLocalizations: { ko: '언어', ja: '言語', 'zh-CN': '语言' },
         description: 'Notification/list language for this tracker',
         type: 3,
         required: false,
-        descriptionLocalizations: { ko: '이 트래커의 알림/목록 언어', ja: 'このトラッカーの通知/一覧言語' },
+        descriptionLocalizations: { ko: '이 트래커의 알림/목록 언어', ja: 'このトラッカーの通知/一覧言語', 'zh-CN': '此追踪器的通知/列表语言' },
         choices: [
           { name: 'eng', value: 'en' },
           { name: 'ko', value: 'ko' },
-          { name: 'ja', value: 'ja' }
+          { name: 'ja', value: 'ja' },
+          { name: '中文', value: 'zh' }
         ]
       }
     ]

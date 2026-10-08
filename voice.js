@@ -17,6 +17,7 @@ const EDGE_VOICES = {
   en: 'en-US-AriaNeural',
   ko: 'ko-KR-SunHiNeural',
   ja: 'ja-JP-NanamiNeural',
+  zh: 'zh-CN-XiaoxiaoNeural',
 };
 
 let audioPlayer = null;
@@ -119,7 +120,7 @@ export async function speak(text) {
 }
 
 function buildSpawnStrings(nextRespawnTime) {
-  const locale = { en: 'en-US', ko: 'ko-KR', ja: 'ja-JP' }[config.voiceLang] || 'en-US';
+  const locale = { en: 'en-US', ko: 'ko-KR', ja: 'ja-JP', zh: 'zh-CN' }[config.voiceLang] || 'en-US';
   const dateStr = new Date(nextRespawnTime).toLocaleString(locale, { month: 'short', day: 'numeric', timeZone: TZ });
   const timeStr = new Date(nextRespawnTime).toLocaleString(locale, { hour: '2-digit', minute: '2-digit', hour12: config.voiceLang !== 'ja', timeZone: TZ });
   return [dateStr, timeStr];

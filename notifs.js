@@ -66,17 +66,17 @@ export async function sendNotif(lang, content, bossId, buttons = false) {
   return sendToChannel(getChannel(lang), lang, content, bossId, buttons);
 }
 
-export async function sendAllNotifsFn(contentEn, contentKo, contentJa, bossId, buttons = false, ctx = mainCtx) {
+export async function sendAllNotifsFn(content, bossId, buttons = false, ctx = mainCtx) {
+  const byLang = content || {};
   if (ctx && ctx.id !== 'main') {
-    const byLang = { en: contentEn, ko: contentKo, ja: contentJa };
-    const msg = await sendToChannel(channelFor(ctx, ctx.lang), ctx.lang, byLang[ctx.lang] ?? contentEn, bossId, buttons);
+    const msg = await sendToChannel(channelFor(ctx, ctx.lang), ctx.lang, byLang[ctx.lang] ?? byLang.en, bossId, buttons);
     return msg ? { [ctx.lang]: msg } : {};
   }
   const promises = [];
   const langs = [];
-  if (config.channels.en) { promises.push(sendNotif('en', contentEn, bossId, buttons)); langs.push('en'); }
-  if (config.channels.ko) { promises.push(sendNotif('ko', contentKo, bossId, buttons)); langs.push('ko'); }
-  if (config.channels.ja) { promises.push(sendNotif('ja', contentJa, bossId, buttons)); langs.push('ja'); }
+  for (const lang of LANG_LIST) {
+    if (config.channels[lang]) { promises.push(sendNotif(lang, byLang[lang] ?? byLang.en, bossId, buttons)); langs.push(lang); }
+  }
   const results = await Promise.all(promises);
   const msgs = {};
   results.forEach((msg, i) => { if (msg) msgs[langs[i]] = msg; });
@@ -179,12 +179,12 @@ async function runNotifCycle(ctx) {
       if (guild != null) {
         guildLine = `\n${tFn('assignedTo', 'en')}: ${guild}`;
       }
-      const msgs = await sendAllNotifsFn(
-        `**[**\`SOON\`**] ${bossNameFn(id, 'en')}**\nSpawn: ${formatTsFn(info.endTime, 'f')}${guildLine}${prefix}`,
-        `**[**\`출현 임박\`**] ${bossNameFn(id, 'ko')}**\n출현: ${formatTsFn(info.endTime, 'f')}${guild ? `\n${tFn('assignedTo', 'ko')}: ${guild}` : ''}${prefix}`,
-        `**[**\`出現間近\`**] ${bossNameFn(id, 'ja')}**\n出現: ${formatTsFn(info.endTime, 'f')}${guild ? `\n${tFn('assignedTo', 'ja')}: ${guild}` : ''}${prefix}`,
-        id, hasButtons, ctx
-      );
+      const msgs = await sendAllNotifsFn({
+        en: `**[**\`SOON\`**] ${bossNameFn(id, 'en')}**\nSpawn: ${formatTsFn(info.endTime, 'f')}${guildLine}${prefix}`,
+        ko: `**[**\`출현 임박\`**] ${bossNameFn(id, 'ko')}**\n출현: ${formatTsFn(info.endTime, 'f')}${guild ? `\n${tFn('assignedTo', 'ko')}: ${guild}` : ''}${prefix}`,
+        ja: `**[**\`出現間近\`**] ${bossNameFn(id, 'ja')}**\n出現: ${formatTsFn(info.endTime, 'f')}${guild ? `\n${tFn('assignedTo', 'ja')}: ${guild}` : ''}${prefix}`,
+        zh: `**[**\`即将出现\`**] ${bossNameFn(id, 'zh')}**\n出现: ${formatTsFn(info.endTime, 'f')}${guild ? `\n${tFn('assignedTo', 'zh')}: ${guild}` : ''}${prefix}`
+      }, id, hasButtons, ctx);
       if (timers[id] !== info) continue;
       if (Object.keys(msgs).length > 0) ctx.notifCache.set(id, msgs);
       const data = { bossId: id, type: 'spawning', timestamp: now, tracker: ctx.id };
@@ -203,17 +203,18 @@ async function runNotifCycle(ctx) {
         if (cached.en) edits.push(cached.en.edit({ content: `**[**\`SPAWNING\`**] ${bossNameFn(id, 'en')}**\nSpawn: ${formatTsFn(info.endTime, 'f')}${guildLine}`, components: cached.en.components }).catch(() => {}));
         if (cached.ko) edits.push(cached.ko.edit({ content: `**[**\`출현 예정\`**] ${bossNameFn(id, 'ko')}**\n출현: ${formatTsFn(info.endTime, 'f')}${guild ? `\n${tFn('assignedTo', 'ko')}: ${guild}` : ''}`, components: cached.ko.components }).catch(() => {}));
         if (cached.ja) edits.push(cached.ja.edit({ content: `**[**\`出現予定\`**] ${bossNameFn(id, 'ja')}**\n出現: ${formatTsFn(info.endTime, 'f')}${guild ? `\n${tFn('assignedTo', 'ja')}: ${guild}` : ''}`, components: cached.ja.components }).catch(() => {}));
+        if (cached.zh) edits.push(cached.zh.edit({ content: `**[**\`出现预告\`**] ${bossNameFn(id, 'zh')}**\n出现: ${formatTsFn(info.endTime, 'f')}${guild ? `\n${tFn('assignedTo', 'zh')}: ${guild}` : ''}`, components: cached.zh.components }).catch(() => {}));
         await Promise.all(edits);
       } else {
         console.log(`[NOTIF] ${id} SPAWNING (no cached msg) cycleKey=${cycleKey} tracker=${ctx.id}`);
         const trackerPrefix = ctx.id === 'main' ? '' : `${ctx.id}_`;
         const notifId = `${trackerPrefix}${id}_soon_${info.endTime}`;
-        const msgs = await sendAllNotifsFn(
-          `**[**\`SPAWNING\`**] ${bossNameFn(id, 'en')}**\nSpawn: ${formatTsFn(info.endTime, 'f')}${guildLine}`,
-          `**[**\`출현 예정\`**] ${bossNameFn(id, 'ko')}**\n출현: ${formatTsFn(info.endTime, 'f')}${guild ? `\n${tFn('assignedTo', 'ko')}: ${guild}` : ''}`,
-          `**[**\`出現予定\`**] ${bossNameFn(id, 'ja')}**\n出現: ${formatTsFn(info.endTime, 'f')}${guild ? `\n${tFn('assignedTo', 'ja')}: ${guild}` : ''}`,
-          id, hasButtons, ctx
-        );
+        const msgs = await sendAllNotifsFn({
+          en: `**[**\`SPAWNING\`**] ${bossNameFn(id, 'en')}**\nSpawn: ${formatTsFn(info.endTime, 'f')}${guildLine}`,
+          ko: `**[**\`출현 예정\`**] ${bossNameFn(id, 'ko')}**\n출현: ${formatTsFn(info.endTime, 'f')}${guild ? `\n${tFn('assignedTo', 'ko')}: ${guild}` : ''}`,
+          ja: `**[**\`出現予定\`**] ${bossNameFn(id, 'ja')}**\n出現: ${formatTsFn(info.endTime, 'f')}${guild ? `\n${tFn('assignedTo', 'ja')}: ${guild}` : ''}`,
+          zh: `**[**\`出现预告\`**] ${bossNameFn(id, 'zh')}**\n出现: ${formatTsFn(info.endTime, 'f')}${guild ? `\n${tFn('assignedTo', 'zh')}: ${guild}` : ''}`
+        }, id, hasButtons, ctx);
         if (timers[id] !== info) continue;
         if (Object.keys(msgs).length > 0) ctx.notifCache.set(id, msgs);
         const data = { bossId: id, type: 'spawning', timestamp: now, tracker: ctx.id };
@@ -239,14 +240,15 @@ async function runNotifCycle(ctx) {
         if (cached.en) edits.push(cached.en.edit({ content: `**[**\`SPAWNED\`**] ${bossNameFn(id, 'en')}**${guildLine}`, components: cached.en.components }).catch(() => {}));
         if (cached.ko) edits.push(cached.ko.edit({ content: `**[**\`출현\`**] ${bossNameFn(id, 'ko')}**${guild ? `\n${tFn('assignedTo', 'ko')}: ${guild}` : ''}`, components: cached.ko.components }).catch(() => {}));
         if (cached.ja) edits.push(cached.ja.edit({ content: `**[**\`出現\`**] ${bossNameFn(id, 'ja')}**${guild ? `\n${tFn('assignedTo', 'ja')}: ${guild}` : ''}`, components: cached.ja.components }).catch(() => {}));
+        if (cached.zh) edits.push(cached.zh.edit({ content: `**[**\`已出现\`**] ${bossNameFn(id, 'zh')}**${guild ? `\n${tFn('assignedTo', 'zh')}: ${guild}` : ''}`, components: cached.zh.components }).catch(() => {}));
         await Promise.all(edits);
       } else {
-        await sendAllNotifsFn(
-          `**[**\`SPAWNED\`**] ${bossNameFn(id, 'en')}**${guildLine}`,
-          `**[**\`출현\`**] ${bossNameFn(id, 'ko')}**${guild ? `\n${tFn('assignedTo', 'ko')}: ${guild}` : ''}`,
-          `**[**\`出現\`**] ${bossNameFn(id, 'ja')}**${guild ? `\n${tFn('assignedTo', 'ja')}: ${guild}` : ''}`,
-          id, false, ctx
-        );
+        await sendAllNotifsFn({
+          en: `**[**\`SPAWNED\`**] ${bossNameFn(id, 'en')}**${guildLine}`,
+          ko: `**[**\`출현\`**] ${bossNameFn(id, 'ko')}**${guild ? `\n${tFn('assignedTo', 'ko')}: ${guild}` : ''}`,
+          ja: `**[**\`出現\`**] ${bossNameFn(id, 'ja')}**${guild ? `\n${tFn('assignedTo', 'ja')}: ${guild}` : ''}`,
+          zh: `**[**\`已出现\`**] ${bossNameFn(id, 'zh')}**${guild ? `\n${tFn('assignedTo', 'zh')}: ${guild}` : ''}`
+        }, id, false, ctx);
       }
       ctx.notifCache.delete(id);
     }
