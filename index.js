@@ -732,7 +732,7 @@ client.once('clientReady', async () => {
     ]
   }, {
     name: 'assignboss',
-    nameLocalizations: { ko: '보스배정', ja: 'ボス割当', 'zh-CN': '分配Boss' },
+    nameLocalizations: { ko: '보스배정', ja: 'ボス割当', 'zh-CN': '分配boss' },
     description: 'Assign bosses to a guild',
     descriptionLocalizations: { ko: '길드에 보스 배정', ja: 'ギルドにボスを割り当て', 'zh-CN': '将Boss分配给公会' },
     options: [
