@@ -48,21 +48,21 @@ const TTS_SPAWNED = {
 };
 
 const TTS_DEFEATED = {
-  en: (n, d, t) => `${n} defeated. Next spawn ${d} at ${t}.`,
-  ko: (n, d, t) => `${n} 처치 완료. 다음 출현은 ${d} ${t}입니다.`,
-  ja: (n, d, t) => `${n}討伐完了。次回出現は${d} ${t}です。`
+  en: (n, d, t) => `${n} defeated.`,
+  ko: (n, d, t) => `${n} 처치 완료.`,
+  ja: (n, d, t) => `${n}討伐完了。`
 };
 
 const TTS_SET = {
-  en: (n, d, t) => `${n} manually set. Next spawn ${d} at ${t}.`,
-  ko: (n, d, t) => `${n} 수동 설정 완료. 다음 출현은 ${d} ${t}입니다.`,
-  ja: (n, d, t) => `${n}手動設定完了。次回出現は${d} ${t}です。`
+  en: (n, d, t) => `${n} manually set.`,
+  ko: (n, d, t) => `${n} 수동 설정 완료.`,
+  ja: (n, d, t) => `${n}手動設定完了。`
 };
 
 const TTS_MISSED = {
-  en: (n, d, t) => `${n} missed. Next spawn ${d} at ${t}.`,
-  ko: (n, d, t) => `${n} 놓침. 다음 출현은 ${d} ${t}입니다.`,
-  ja: (n, d, t) => `${n}見逃し。次回出現は${d} ${t}です。`
+  en: (n, d, t) => `${n} missed.`,
+  ko: (n, d, t) => `${n} 놓침.`,
+  ja: (n, d, t) => `${n}見逃し。`
 };
 
 const WORLD_BOSS_TIMES = [
