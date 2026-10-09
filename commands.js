@@ -123,10 +123,10 @@ async function sendDefeatNotification(bossId, killedAt, endTime, statusKey, user
   const killEn = formatTsFn(killedAt, 'f');
   const nextEn = formatTsFn(endTime, 'f');
   await sendAllNotifsFn({
-    en: `**[**\`${TAG[statusKey].en}\`**] ${nameEn}**\n${KILL.en}: ${killEn} | ${NEXT.en}: ${nextEn}\n${BY.en}: ${user}`,
-    ko: `**[**\`${TAG[statusKey].ko}\`**] ${nameKo}**\n${KILL.ko}: ${killEn} | ${NEXT.ko}: ${nextEn}\n${BY.ko}: ${user}`,
-    ja: `**[**\`${TAG[statusKey].ja}\`**] ${nameJa}**\n${KILL.ja}: ${killEn} | ${NEXT.ja}: ${nextEn}\n${BY.ja}: ${user}`,
-    zh: `**[**\`${TAG[statusKey].zh}\`**] ${nameZh}**\n${KILL.zh}: ${killEn} | ${NEXT.zh}: ${nextEn}\n${BY.zh}: ${user}`
+    en: `**[**\`${TAG[statusKey].en}\`**] ${nameEn}**\n${KILL.en}: ${killEn}\n${NEXT.en}: ${nextEn}\n${BY.en}: ${user}`,
+    ko: `**[**\`${TAG[statusKey].ko}\`**] ${nameKo}**\n${KILL.ko}: ${killEn}\n${NEXT.ko}: ${nextEn}\n${BY.ko}: ${user}`,
+    ja: `**[**\`${TAG[statusKey].ja}\`**] ${nameJa}**\n${KILL.ja}: ${killEn}\n${NEXT.ja}: ${nextEn}\n${BY.ja}: ${user}`,
+    zh: `**[**\`${TAG[statusKey].zh}\`**] ${nameZh}**\n${KILL.zh}: ${killEn}\n${NEXT.zh}: ${nextEn}\n${BY.zh}: ${user}`
   }, bossId, false, tracker);
 }
 
