@@ -14,7 +14,7 @@ let TTS_SPAWN_IN, TTS_SPAWNED, TTS_DEFEATED, TTS_SET, TTS_MISSED;
 let WORLD_BOSS_TIMES, TTS_WORLD_BOSS_IN, TTS_WORLD_BOSS_SPAWNED;
 
 const EDGE_VOICES = {
-  en: 'en-US-AnaNeural',
+  en: 'en-US-AriaNeural',
   ko: 'ko-KR-SunHiNeural',
   ja: 'ja-JP-NanamiNeural',
   zh: 'zh-CN-XiaoxiaoNeural',
@@ -28,6 +28,7 @@ let idleTimer = null;
 let connectingPromise = null;
 let sentWorldBossSpawned = new Set();
 let ttsWorldBossMinutes = new Map();
+let warnedNoVoice = false;
 
 export function initVoice(deps) {
   client = deps.client;
@@ -60,7 +61,8 @@ export async function connectVoice() {
   connectingPromise = (async () => {
     try {
       const channel = await client.channels.fetch(voiceId);
-      if (!channel?.isVoiceBased()) return;
+      if (!channel) { console.warn('[VOICE] configured voice channel not found:', voiceId); return; }
+      if (!channel.isVoiceBased()) { console.warn('[VOICE] configured channel is not a voice channel:', voiceId); return; }
       const guild = channel.guild;
       audioPlayer = createAudioPlayer();
       audioPlayer.on('error', e => {
@@ -92,7 +94,10 @@ export async function connectVoice() {
 }
 
 export async function speak(text) {
-  if (!config.voice) return;
+  if (!config.voice) {
+    if (!warnedNoVoice) { warnedNoVoice = true; console.warn('[VOICE] TTS requested but no voice channel is configured (/setup voice_channel)'); }
+    return;
+  }
   if (!voiceConnection) await connectVoice();
   if (!voiceConnection || !audioPlayer) return;
   if (idleTimer) { clearTimeout(idleTimer); idleTimer = null; }
@@ -112,11 +117,12 @@ export async function speak(text) {
         '--write-media', tmpFile,
       ], { timeout: 20000 });
       const data = await readFile(tmpFile);
+      if (!data || data.length === 0) throw new Error('edge-tts produced no audio');
       audioPlayer.play(createAudioResource(Readable.from(data)));
     } finally {
       await unlink(tmpFile).catch(() => {});
     }
-  } catch (e) { console.error('[TTS] error:', e.message); isSpeaking = false; }
+  } catch (e) { console.error(`[TTS] error (voice=${EDGE_VOICES[config.voiceLang || 'en'] || EDGE_VOICES.en}):`, e.stderr || e.message); isSpeaking = false; }
 }
 
 function buildSpawnStrings(nextRespawnTime) {
