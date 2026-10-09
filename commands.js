@@ -979,8 +979,9 @@ export async function handleInteraction(interaction) {
     if (isSetSub) {
       const subAction = interaction.options.getString('action') || 'set';
       const n = interaction.options.getInteger('tracker');
-      const channel = interaction.options.getChannel('channel');
-      const language = interaction.options.getString('language') || 'en';
+      const channelOpt = interaction.options.getChannel('channel');
+      const langOpt = interaction.options.getString('language');
+      const muteOpt = interaction.options.getBoolean('mute_kransia');
       if (!config.subTrackers || typeof config.subTrackers !== 'object') config.subTrackers = {};
       const subs = config.subTrackers;
 
@@ -988,7 +989,7 @@ export async function handleInteraction(interaction) {
         const ids = Object.keys(subs).sort((a, b) => Number(a) - Number(b));
         const lines = [tFn('subTrackerListTitle', helpLang)];
         if (ids.length === 0) lines.push(tFn('subTrackerNoList', helpLang));
-        else for (const id of ids) lines.push(`${id} → <#${subs[id].channel}> (${subs[id].lang})`);
+        else for (const id of ids) lines.push(`${id} → <#${subs[id].channel}> (${subs[id].lang})${subs[id].muteKransia ? ` ${tFn('subTrackerMuted', helpLang)}` : ''}`);
         return interaction.reply({ content: lines.join('\n'), flags: MessageFlags.Ephemeral });
       }
 
@@ -1002,16 +1003,22 @@ export async function handleInteraction(interaction) {
         return interaction.reply({ content: tFn('subTrackerRemoved', helpLang), flags: MessageFlags.Ephemeral });
       }
 
+      const key = String(n);
+      const existing = subs[key];
+      const channel = channelOpt || (existing ? { id: existing.channel } : null);
       if (!channel) return interaction.reply({ content: tFn('subTrackerUsage', helpLang), flags: MessageFlags.Ephemeral });
       const mainChans = Object.values(config.channels || {}).filter(Boolean);
-      const taken = Object.entries(subs).some(([id, s]) => s.channel === channel.id && id !== String(n));
+      const taken = Object.entries(subs).some(([id, s]) => s.channel === channel.id && id !== key);
       if (mainChans.includes(channel.id) || taken) {
         return interaction.reply({ content: tFn('subTrackerChannelTaken', helpLang), flags: MessageFlags.Ephemeral });
       }
-      subs[String(n)] = { channel: channel.id, lang: language };
-      await createSubTrackerFn(n, subs[String(n)]);
+      const lang = langOpt || existing?.lang || 'en';
+      const muteKransia = muteOpt !== null ? muteOpt : (existing?.muteKransia || false);
+      const rebuild = !existing || existing.channel !== channel.id || existing.lang !== lang;
+      subs[key] = { channel: channel.id, lang, muteKransia };
+      if (rebuild) await createSubTrackerFn(n, subs[key]);
       await saveConfigFn();
-      return interaction.reply({ content: `${tFn('subTrackerSet', helpLang)} ${n} → <#${channel.id}> (${language})`, flags: MessageFlags.Ephemeral });
+      return interaction.reply({ content: `${tFn('subTrackerSet', helpLang)} ${n} → <#${channel.id}> (${lang})${muteKransia ? ` ${tFn('subTrackerMuted', helpLang)}` : ''}`, flags: MessageFlags.Ephemeral });
     }
 
     if (isSetup || isImport || isExport || isRotation || isAddguild || isAssignboss) {
@@ -1063,6 +1070,7 @@ export async function handleInteraction(interaction) {
       const voiceCh = interaction.options.getChannel('voice_channel');
       const voiceLang = interaction.options.getString('voice_language') || config.voiceLang || 'en';
       const pingHere = interaction.options.getBoolean('ping_here') ?? config.pingHere;
+      const muteKransia = interaction.options.getBoolean('mute_kransia');
       if (enCh) config.channels.en = enCh.id;
       if (koCh) config.channels.ko = koCh.id;
       if (jaCh) config.channels.ja = jaCh.id;
@@ -1070,10 +1078,12 @@ export async function handleInteraction(interaction) {
       if (voiceCh) { config.voice = voiceCh.id; }
       config.voiceLang = voiceLang;
       config.pingHere = pingHere;
+      if (muteKransia !== null) config.muteKransia = muteKransia;
       await db.collection('config').doc('discordBot').set(config, { merge: false });
       await interaction.deferReply({ flags: MessageFlags.Ephemeral });
       const pingStatus = pingHere ? ` | @here: ${pingHere}` : '';
-      return interaction.editReply({ content: tFn('setupSuccess', voiceLang) + pingStatus });
+      const kransiaStatus = ` | Kransia: ${config.muteKransia ? '🔇' : '🔔'}`;
+      return interaction.editReply({ content: tFn('setupSuccess', voiceLang) + pingStatus + kransiaStatus });
     }
 
     if (isHelp) {

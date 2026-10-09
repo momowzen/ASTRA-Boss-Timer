@@ -27,7 +27,7 @@ const db = admin.firestore();
 const TZ = 'Asia/Tokyo';
 const HISTORY_TTL_DAYS = 2;
 
-let config = { channels: { en: null, ko: null, ja: null, zh: null }, voice: null, voiceLang: 'en', pingHere: false, subTrackers: {} };
+let config = { channels: { en: null, ko: null, ja: null, zh: null }, voice: null, voiceLang: 'en', pingHere: false, muteKransia: false, subTrackers: {} };
 let timers = {};
 let notifMessageCache = new Map();
 let sentSoonNotifs = new Set();
@@ -320,6 +320,8 @@ function migrateConfig(data) {
   if (!data.channels || typeof data.channels !== 'object') data.channels = { en: null, ko: null, ja: null, zh: null };
   else if (!('zh' in data.channels)) data.channels.zh = null;
 
+  if (typeof data.muteKransia !== 'boolean') data.muteKransia = false;
+
   return data;
 }
 
@@ -329,7 +331,7 @@ async function loadConfig() {
   if (doc.exists) {
     const data = migrateConfig(doc.data());
     for (const key of Object.keys(config)) delete config[key];
-    Object.assign(config, { channels: { en: null, ko: null, ja: null, zh: null }, voice: null, voiceLang: 'en', subTrackers: {} }, data);
+    Object.assign(config, { channels: { en: null, ko: null, ja: null, zh: null }, voice: null, voiceLang: 'en', pingHere: false, muteKransia: false, subTrackers: {} }, data);
     if (config.voice && typeof config.voice === 'object') config.voice = config.voice.en || null;
   }
 }
@@ -621,7 +623,8 @@ client.once('clientReady', async () => {
           { name: 'Chinese', value: 'zh' }
         ]
       },
-      { name: 'ping_here', nameLocalizations: { ko: '여기_멘션', ja: 'ここメンション', 'zh-CN': '此处提及' }, description: '@here ping on spawn warnings', type: 5, required: false, descriptionLocalizations: { ko: '출현 알림 @here 멘션', ja: '出現通知で@hereメンション', 'zh-CN': '出现提醒时@here' } }
+      { name: 'ping_here', nameLocalizations: { ko: '여기_멘션', ja: 'ここメンション', 'zh-CN': '此处提及' }, description: '@here ping on spawn warnings', type: 5, required: false, descriptionLocalizations: { ko: '출현 알림 @here 멘션', ja: '出現通知で@hereメンション', 'zh-CN': '出现提醒时@here' } },
+      { name: 'mute_kransia', nameLocalizations: { ko: '크란시아_음소거', ja: 'クランシア_ミュート', 'zh-CN': '静音克兰西亚' }, description: 'Mute Kransia boss notifications (Motti, Icaruthia, Lucus, Nevaeh)', type: 5, required: false, descriptionLocalizations: { ko: '크란시아 보스 알림 음소거 (모티, 이카루시아, 루크스, 네바)', ja: 'クランシアボス通知をミュート (モティ、イカルシア、ルクス、ネバ)', 'zh-CN': '静音克兰西亚Boss通知（莫蒂、伊卡露西雅、鲁库斯、涅巴）' } }
     ]
   }, {
     name: 'astra',
@@ -795,6 +798,14 @@ client.once('clientReady', async () => {
           { name: 'ja', value: 'ja' },
           { name: '中文', value: 'zh' }
         ]
+      },
+      {
+        name: 'mute_kransia',
+        nameLocalizations: { ko: '크란시아_음소거', ja: 'クランシア_ミュート', 'zh-CN': '静音克兰西亚' },
+        description: 'Mute Kransia boss notifications for this tracker',
+        type: 5,
+        required: false,
+        descriptionLocalizations: { ko: '이 트래커의 크란시아 보스 알림 음소거', ja: 'このトラッカーのクランシアボス通知をミュート', 'zh-CN': '静音此追踪器的克兰西亚Boss通知' }
       }
     ]
   }];

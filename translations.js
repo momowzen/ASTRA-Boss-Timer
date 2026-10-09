@@ -76,6 +76,7 @@ const LANG = {
     subTrackerNoList: "No sub-trackers configured.",
     subTrackerUnbound: "This channel is not bound to a tracker. Use `/setsubtracker` to bind it.",
     subTrackerListTitle: "Sub-trackers:",
+    subTrackerMuted: "🔇 muted",
     bossNames: {
       Venatus: "Venatus", Viorent: "Viorent", Ego: "Ego", Clemantis: "Clemantis",
       Livera: "Livera", Araneo: "Araneo", Undomiel: "Undomiel", Saphirus: "Saphirus",
@@ -168,6 +169,7 @@ const LANG = {
     subTrackerNoList: "설정된 서브 트래커가 없습니다.",
     subTrackerUnbound: "이 채널은 트래커에 연결되지 않았습니다. `/setsubtracker`로 연결하세요.",
     subTrackerListTitle: "서브 트래커:",
+    subTrackerMuted: "🔇 음소거",
     bossNames: {
       Venatus: "베나투스", Viorent: "비오렌트", Ego: "에고", Clemantis: "클레멘티스",
       Livera: "리베라", Araneo: "아라네오", Undomiel: "언두미엘", Saphirus: "사피루스",
@@ -260,6 +262,7 @@ const LANG = {
     subTrackerNoList: "サブトラッカーは設定されていません。",
     subTrackerUnbound: "このチャンネルはトラッカーに接続されていません。`/setsubtracker`で接続してください。",
     subTrackerListTitle: "サブトラッカー:",
+    subTrackerMuted: "🔇 ミュート",
     bossNames: {
       Venatus: "ベナトゥス", Viorent: "ビオレント", Ego: "エゴ", Clemantis: "クレメンティス",
       Livera: "リベラ", Araneo: "アラネオ", Undomiel: "アンドゥミエル", Saphirus: "サピルス",
@@ -352,6 +355,7 @@ const LANG = {
     subTrackerNoList: "未配置子追踪器。",
     subTrackerUnbound: "此频道未连接到追踪器。使用 `/setsubtracker` 连接。",
     subTrackerListTitle: "子追踪器：",
+    subTrackerMuted: "🔇 已静音",
     bossNames: {
       Venatus: "贝纳图斯", Viorent: "比欧兰特", Ego: "艾果", Clemantis: "克莱曼蒂斯",
       Livera: "黎维菈", Araneo: "爱拉诺", Undomiel: "温多米尔", Saphirus: "塞费洛丝",

@@ -10,6 +10,7 @@ let cleanupInterval;
 let speakFn, speakFromNotifLoopFn, speakSpawnedFn, formatTsFn;
 
 const TTS_MINUTES = new Set([10, 5, 4, 3, 2, 1]);
+const KRANSIA_IDS = new Set(['Motti', 'Icaruthia', 'Lucus', 'Nevaeh']);
 
 export function initNotifs(deps) {
   client = deps.client;
@@ -157,6 +158,11 @@ async function runNotifCycle(ctx) {
     }
 
     const cycleKey = `${id}_${info.endTime}`;
+
+    const kransiaMuted = ctx.id === 'main'
+      ? !!config.muteKransia
+      : !!(config.subTrackers && config.subTrackers[ctx.id] && config.subTrackers[ctx.id].muteKransia);
+    if (kransiaMuted && KRANSIA_IDS.has(id)) continue;
 
     if (ctx.id === 'main' && remainingMs > 0 && remainingMs <= 10 * 60 * 1000) {
       const minutesLeft = Math.ceil(remainingMs / 60000);
