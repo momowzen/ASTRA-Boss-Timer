@@ -1,23 +1,15 @@
 import { joinVoiceChannel, createAudioPlayer, createAudioResource, AudioPlayerStatus, VoiceConnectionStatus, entersState } from '@discordjs/voice';
 import { Readable } from 'stream';
-import { execFile } from 'child_process';
-import { promisify } from 'util';
-import { tmpdir } from 'os';
-import { join } from 'path';
-import { readFile, unlink } from 'fs/promises';
-import { randomUUID } from 'crypto';
-
-const execFileAsync = promisify(execFile);
 
 let client, config, bossNameFn, TZ, TZ_OFFSET;
 let TTS_SPAWN_IN, TTS_SPAWNED, TTS_DEFEATED, TTS_SET, TTS_MISSED;
 let WORLD_BOSS_TIMES, TTS_WORLD_BOSS_IN, TTS_WORLD_BOSS_SPAWNED;
 
-const EDGE_VOICES = {
-  en: 'en-US-AriaNeural',
-  ko: 'ko-KR-SunHiNeural',
-  ja: 'ja-JP-NanamiNeural',
-  zh: 'zh-CN-XiaoxiaoNeural',
+const VOICES = {
+  en: 'en',
+  ko: 'ko',
+  ja: 'ja',
+  zh: 'zh-CN',
 };
 
 let audioPlayer = null;
@@ -108,21 +100,15 @@ export async function speak(text) {
   isSpeaking = true;
   try {
     const lang = config.voiceLang || 'en';
-    const voice = EDGE_VOICES[lang] || EDGE_VOICES.en;
-    const tmpFile = join(tmpdir(), `tts-${randomUUID()}.mp3`);
-    try {
-      await execFileAsync('edge-tts', [
-        '--text', text,
-        '--voice', voice,
-        '--write-media', tmpFile,
-      ], { timeout: 20000 });
-      const data = await readFile(tmpFile);
-      if (!data || data.length === 0) throw new Error('edge-tts produced no audio');
-      audioPlayer.play(createAudioResource(Readable.from(data)));
-    } finally {
-      await unlink(tmpFile).catch(() => {});
-    }
-  } catch (e) { console.error(`[TTS] error (voice=${EDGE_VOICES[config.voiceLang || 'en'] || EDGE_VOICES.en}):`, e.stderr || e.message); isSpeaking = false; }
+    const tl = VOICES[lang] || VOICES.en;
+    const q = text.length > 200 ? text.slice(0, 200) : text;
+    const url = `https://translate.googleapis.com/translate_tts?ie=UTF-8&client=tw-ob&tl=${encodeURIComponent(tl)}&q=${encodeURIComponent(q)}`;
+    const res = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0', Referer: 'https://translate.google.com/' }, signal: AbortSignal.timeout(20000) });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const buf = Buffer.from(await res.arrayBuffer());
+    if (!buf.length) throw new Error('TTS produced no audio');
+    audioPlayer.play(createAudioResource(Readable.from(buf)));
+  } catch (e) { console.error(`[TTS] error (voice=${VOICES[config.voiceLang || 'en'] || VOICES.en}):`, e.message); isSpeaking = false; }
 }
 
 function buildSpawnStrings(nextRespawnTime) {
