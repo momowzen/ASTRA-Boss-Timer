@@ -572,7 +572,7 @@ export async function handleCommand(msg, tracker = mainCtx) {
 
   if (cmd === 'reset_tracker') {
     const msgContent = parts.slice(1).join(' ').toLowerCase();
-    if (!['confirm', '확인', '確認'].includes(msgContent)) {
+    if (!['confirm', '확인', '確認', '确认'].includes(msgContent)) {
       return msg.reply(tFn('resetConfirm', lang) || `**WARNING:** This will clear all interval boss timers permanently. Type \`reset_tracker confirm\` to proceed.`);
     }
     for (const boss of BOSSES_DATA) {
