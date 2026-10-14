@@ -150,23 +150,48 @@ function parseBossTimeArgs(args) {
   return { name: args.slice(0, args.length - 1).join(' '), date: null, time: last };
 }
 
-function applySet(boss, dateStr, timeStr, user, lang, tracker = mainCtx) {
+const NAMED_OFFSETS = { ph: 480 };
+
+function extractOffset(args) {
+  if (!args.length) return { args, offsetMinutes: null };
+  const lastTok = args[args.length - 1];
+  const named = NAMED_OFFSETS[lastTok.toLowerCase()];
+  if (named !== undefined) return { args: args.slice(0, -1), offsetMinutes: named };
+  const m = lastTok.match(/^(?:utc|gmt)?([+-])(\d{1,2})(?::?(\d{2}))?$/i);
+  if (!m) return { args, offsetMinutes: null };
+  const h = parseInt(m[2], 10);
+  const mm = m[3] ? parseInt(m[3], 10) : 0;
+  const minutes = (m[1] === '-' ? -1 : 1) * (h * 60 + mm);
+  if (mm > 59 || Math.abs(minutes) > 840) return { args, offsetMinutes: null, invalid: true };
+  return { args: args.slice(0, -1), offsetMinutes: minutes };
+}
+
+function offsetLabel(offsetMinutes) {
+  const sign = offsetMinutes < 0 ? '-' : '+';
+  const abs = Math.abs(offsetMinutes);
+  const h = Math.floor(abs / 60);
+  const m = abs % 60;
+  return `UTC${sign}${h}${m ? ':' + String(m).padStart(2, '0') : ''}`;
+}
+
+function applySet(boss, dateStr, timeStr, user, lang, tracker = mainCtx, offsetMinutes = 540) {
   const hour = parseInt(timeStr.slice(0, 2));
   const minute = parseInt(timeStr.slice(2, 4));
   if (isNaN(hour) || isNaN(minute) || hour < 0 || hour > 23 || minute < 0 || minute > 59) return tFn('invalidTime', lang);
   const now = Date.now();
+  const off = offsetMinutes * 60000;
   let killedAt;
   if (dateStr) {
     const month = parseInt(dateStr.slice(0, 2));
     const day = parseInt(dateStr.slice(2, 4));
     if (isNaN(month) || isNaN(day) || month < 1 || month > 12 || day < 1 || day > 31) return tFn('invalidDate', lang);
-    const fullYear = new Date(now + TZ_OFFSET).getUTCFullYear();
+    const fullYear = new Date(now + off).getUTCFullYear();
     const dateProbe = new Date(Date.UTC(fullYear, month - 1, day));
     if (dateProbe.getUTCMonth() !== month - 1 || dateProbe.getUTCDate() !== day) return tFn('invalidDate', lang);
-    killedAt = Date.UTC(fullYear, month - 1, day, hour, minute) - TZ_OFFSET;
+    killedAt = Date.UTC(fullYear, month - 1, day, hour, minute) - off;
   } else {
-    const jstNow = new Date(now + TZ_OFFSET);
-    killedAt = new Date(Date.UTC(jstNow.getUTCFullYear(), jstNow.getUTCMonth(), jstNow.getUTCDate(), hour, minute)).getTime() - TZ_OFFSET;
+    const localNow = new Date(now + off);
+    killedAt = new Date(Date.UTC(localNow.getUTCFullYear(), localNow.getUTCMonth(), localNow.getUTCDate(), hour, minute)).getTime() - off;
   }
   if (isNaN(killedAt)) return tFn('invalidDate', lang);
   if (killedAt > Date.now()) return tFn('futureTime', lang);
@@ -183,50 +208,23 @@ const HELP_EN = [
   '> `kill Venatus` · `Venatus cut`',
   '',
   '**Set Timer**',
-  '`set <boss> [MMDD] <HHMM>` → Manually set kill time.',
-  '`<boss> <HHMM>` / `<boss> <MMDD> <HHMM>` → Shortcut.',
-  '> `set Venatus 1430` · `set Venatus 0721 1430`',
+  '`set <boss> [MMDD] <HHMM> [+off]` → Set kill time manually.',
+  '`<boss> [MMDD] <HHMM> [+off]` → Shortcut.',
+  '`+off` = your UTC offset (e.g. `+8`, `+5:30`) or `ph` (= UTC+8); default JST.',
+  '> `set Venatus 1430` · `Venatus 1015 0055 ph` · `Venatus 1430 +8`',
   '',
   '**Timer Control**',
   '`miss <boss>` → Mark missed. Kill time = spawn + 2 min.',
   '`clear <boss>` → Remove timer.',
+  '`reset_tracker confirm` → Reset all interval timers.',
   '',
   '**Boss Lists**',
   '`bl` → All boss timers.',
   '`ut` → Bosses spawning within 24h.',
   '`ug` → Upcoming bosses grouped by guild.',
   '',
-  '**Tracker Management**',
-  '`reset_tracker confirm` → Reset all interval timers.',
-  '`/import` → Import timers. *(main tracker only)*',
-  '`/export` → Export timers. *(main tracker only)*',
-  '',
-  '**Guild Rotation**',
-  '`/rotation type:kill` → Rotate per kill/set/miss.',
-  '`/rotation type:weekly` → Rotate weekly.',
-  '`/rotation flip_day:<day> flip_time:<HH:MM>` → Set weekly flip schedule (JST).',
-  '`/rotation type:none` → Disable rotation.',
-  '`/rotation action:clear` → Clear rotation data.',
-  '`/rotation action:status` → Show rotation status.',
-  '',
-  '**Guild Management**',
-  '`/addguild guild_names:<name1> <name2>...` → Register guilds.',
-  '`/addguild remove_guild:<name>` → Remove a guild.',
-  '`/addguild action:clear` → Clear all guilds.',
-  '`/addguild action:list` → List registered guilds.',
-  '`/assignboss guild:<guild>` → Assign bosses to a guild.',
-  '',
-  '**Notifications**',
-  '`/setup` → Configure notification channels.',
-  '`/setup ping_here:True` → Enable `@here` spawn alerts.',
-  '',
-  '**Sub-Trackers**',
-  '`/setsubtracker action:set tracker:<2+> channel:<ch> language:<en/ko/ja/zh>` → Bind independent tracker.',
-  '`/setsubtracker action:remove tracker:<n>` → Unbind sub-tracker.',
-  '`/setsubtracker action:list` → List sub-tracker bindings.',
-  '',
   '**Help**',
-  '`astra` / `astra help` / `/astra` → Show this help.',
+  '`astra` / `astra help` → Show this help.',
 ].join('\n');
 
 const HELP_KO = [
@@ -237,50 +235,23 @@ const HELP_KO = [
   '> `처치 베나투스` · `베나투스 컷`',
   '',
   '**타이머 설정**',
-  '`설정 <보스명> [월일] <시분>` → 처치 시간을 수동으로 설정합니다.',
-  '`<보스명> <시분>` / `<보스명> <월일> <시분>` → 단축 입력.',
-  '> `설정 베나투스 1430` · `설정 베나투스 0721 1430`',
+  '`설정 <보스명> [월일] <시분> [+off]` → 처치 시간을 수동 설정합니다.',
+  '`<보스명> [월일] <시분> [+off]` → 단축 입력.',
+  '`+off` = 본인의 UTC 오프셋 (예: `+8`, `+5:30`) 또는 `ph`(= UTC+8), 기본 JST.',
+  '> `설정 베나투스 1430` · `베나투스 1015 0055 ph` · `베나투스 1430 +8`',
   '',
   '**타이머 관리**',
-  '`놓침 <보스명>` → 놓침으로 기록. 처치 시간 = 출현 + 2분.',
-  '`초기화 <보스명>` → 타이머를 삭제합니다.',
+  '`놓침 <보스명>` → 놓침 기록. 처치 시간 = 출현 + 2분.',
+  '`초기화 <보스명>` → 타이머 삭제.',
+  '`초기화_전체 확인` → 모든 고정 주기 타이머 초기화.',
   '',
   '**보스 목록**',
   '`목록` → 모든 보스 타이머.',
   '`곧` → 24시간 이내 출현 보스.',
   '`길드` → 길드별 출현 예정 보스.',
   '',
-  '**트래커 관리**',
-  '`초기화_전체 확인` → 모든 고정 주기 타이머 초기화.',
-  '`/가져오기` → 타이머 가져오기. *(메인 전용)*',
-  '`/내보내기` → 타이머 내보내기. *(메인 전용)*',
-  '',
-  '**길드 로테이션**',
-  '`/로테이션 type:kill` → 처치/설정/놓침 시 로테이션.',
-  '`/로테이션 type:weekly` → 주간 로테이션.',
-  '`/로테이션 flip_day:<요일> flip_time:<HH:MM>` → 주간 전환 일정 설정 (JST).',
-  '`/로테이션 type:none` → 로테이션 비활성화.',
-  '`/로테이션 action:clear` → 로테이션 데이터 삭제.',
-  '`/로테이션 action:status` → 로테이션 상태 표시.',
-  '',
-  '**길드 관리**',
-  '`/길드추가 guild_names:<이름1> <이름2>...` → 길드 등록.',
-  '`/길드추가 remove_guild:<이름>` → 길드 제거.',
-  '`/길드추가 action:clear` → 모든 길드 삭제.',
-  '`/길드추가 action:list` → 등록된 길드 목록.',
-  '`/보스배정 guild:<길드>` → 길드에 보스 배정.',
-  '',
-  '**알림**',
-  '`/설정` → 알림 채널 설정.',
-  '`/설정 ping_here:True` → `@here` 출현 알림 활성화.',
-  '',
-  '**서브 트래커**',
-  '`/서브트래커설정 action:set tracker:<2+> channel:<채널> language:<en/ko/ja/zh>` → 독립 트래커 연결.',
-  '`/서브트래커설정 action:remove tracker:<n>` → 서브 트래커 해제.',
-  '`/서브트래커설정 action:list` → 서브 트래커 목록.',
-  '',
   '**도움말**',
-  '`도움` / `도움말` / `/도움말` → 이 도움말을 표시합니다.',
+  '`도움` / `도움말` → 이 도움말을 표시합니다.',
 ].join('\n');
 
 const HELP_JA = [
@@ -291,50 +262,23 @@ const HELP_JA = [
   '> `討伐 ベナトゥス` · `ベナトゥス カット`',
   '',
   '**タイマー設定**',
-  '`設定 <ボス名> [月日] <時分>` → 討伐時間を手動で設定します。',
-  '`<ボス名> <時分>` / `<ボス名> <月日> <時分>` → 省略入力。',
-  '> `設定 ベナトゥス 1430` · `設定 ベナトゥス 0721 1430`',
+  '`設定 <ボス名> [月日] <時分> [+off]` → 討伐時間を手動設定します。',
+  '`<ボス名> [月日] <時分> [+off]` → 省略入力。',
+  '`+off` = 自分のUTCオフセット（例: `+8`, `+5:30`）または `ph`（= UTC+8）、既定はJST。',
+  '> `設定 ベナトゥス 1430` · `ベナトゥス 1015 0055 ph` · `ベナトゥス 1430 +8`',
   '',
   '**タイマー管理**',
-  '`逃し <ボス名>` → 取り逃しで記録。討伐時間 = 出現 + 2分。',
-  '`解除 <ボス名>` → タイマーを削除します。',
+  '`逃し <ボス名>` → 取り逃し記録。討伐時間 = 出現 + 2分。',
+  '`解除 <ボス名>` → タイマー削除。',
+  '`全解除 確認` → すべての固定周期タイマーをリセット。',
   '',
   '**ボス一覧**',
   '`一覧` → すべてのボスタイマー。',
   '`まもなく` → 24時間以内に出現するボス。',
   '`ギルド` → ギルド別の出現予定ボス。',
   '',
-  '**トラッカー管理**',
-  '`全解除 確認` → すべての固定周期タイマーをリセット。',
-  '`/いんぽーと` → タイマーをインポート。*(メインのみ)*',
-  '`/エクスポート` → タイマーをエクスポート。*(メインのみ)*',
-  '',
-  '**ギルドローテーション**',
-  '`/ローテーション type:kill` → 討伐/設定/逃しで切替。',
-  '`/ローテーション type:weekly` → 週間で切替。',
-  '`/ローテーション flip_day:<曜日> flip_time:<HH:MM>` → 週間切替スケジュール設定 (JST)。',
-  '`/ローテーション type:none` → ローテーション無効化。',
-  '`/ローテーション action:clear` → ローテーションデータをクリア。',
-  '`/ローテーション action:status` → ローテーション状態を表示。',
-  '',
-  '**ギルド管理**',
-  '`/ギルド追加 guild_names:<名前1> <名前2>...` → ギルド登録。',
-  '`/ギルド追加 remove_guild:<名前>` → ギルド削除。',
-  '`/ギルド追加 action:clear` → すべてのギルドをクリア。',
-  '`/ギルド追加 action:list` → 登録済みギルド一覧。',
-  '`/ボス割当 guild:<ギルド>` → ギルドにボスを割り当て。',
-  '',
-  '**通知**',
-  '`/せってい` → 通知チャンネルを設定。',
-  '`/せってい ping_here:True` → `@here` 出現通知を有効化。',
-  '',
-  '**サブトラッカー**',
-  '`/サブトラッカー設定 action:set tracker:<2+> channel:<チャンネル> language:<en/ko/ja/zh>` → 独立トラッカーを設定。',
-  '`/サブトラッカー設定 action:remove tracker:<n>` → サブトラッカー解除。',
-  '`/サブトラッカー設定 action:list` → サブトラッカー一覧。',
-  '',
   '**ヘルプ**',
-  '`へるぷ` / `/へるぷ` → このヘルプを表示します。',
+  '`へるぷ` → このヘルプを表示します。',
 ].join('\n');
 
 const HELP_ZH = [
@@ -345,50 +289,115 @@ const HELP_ZH = [
   '> `击杀 贝纳图斯` · `贝纳图斯 击杀`',
   '',
   '**设置计时**',
-  '`设置 <Boss名称> [MMDD] <HHMM>` → 手动设置击杀时间。',
-  '`<Boss名称> <HHMM>` / `<Boss名称> <MMDD> <HHMM>` → 简写。',
-  '> `设置 贝纳图斯 1430` · `设置 贝纳图斯 0721 1430`',
+  '`设置 <Boss名称> [MMDD] <HHMM> [+off]` → 手动设置击杀时间。',
+  '`<Boss名称> [MMDD] <HHMM> [+off]` → 简写。',
+  '`+off` = 你的 UTC 偏移（如 `+8`、`+5:30`）或 `ph`（= UTC+8），默认 JST。',
+  '> `设置 贝纳图斯 1430` · `贝纳图斯 1015 0055 ph` · `贝纳图斯 1430 +8`',
   '',
   '**计时管理**',
   '`错过 <Boss名称>` → 记录错过。击杀时间 = 出现 + 2分钟。',
   '`清除 <Boss名称>` → 删除计时。',
+  '`重置_全部 确认` → 重置所有固定周期计时。',
   '',
   '**Boss列表**',
   '`列表` → 所有Boss计时。',
   '`临近` → 24小时内出现的Boss。',
   '`公会` → 按公会分组的出现预告。',
   '',
-  '**追踪器管理**',
-  '`重置_全部 确认` → 重置所有固定周期计时。',
-  '`/导入` → 导入计时。*(仅主追踪器)*',
-  '`/导出` → 导出计时。*(仅主追踪器)*',
+  '**帮助**',
+  '`帮助` → 显示帮助。',
+].join('\n');
+
+const ADMIN_HELP_EN = [
+  '**ASTRA Slash Commands | English**',
   '',
-  '**公会轮换**',
-  '`/轮换 type:kill` → 按击杀/设置/错过轮换。',
-  '`/轮换 type:weekly` → 每周轮换。',
-  '`/轮换 flip_day:<星期> flip_time:<HH:MM>` → 设置每周切换日程 (JST)。',
-  '`/轮换 type:none` → 禁用轮换。',
-  '`/轮换 action:clear` → 清除轮换数据。',
-  '`/轮换 action:status` → 显示轮换状态。',
+  '**Setup**',
+  '`/setup` → Channels, voice, `ping_here`, `mute_kransia`.',
   '',
-  '**公会管理**',
-  '`/添加公会 guild_names:<名称1> <名称2>...` → 注册公会。',
-  '`/添加公会 remove_guild:<名称>` → 移除公会。',
-  '`/添加公会 action:clear` → 清除所有公会。',
-  '`/添加公会 action:list` → 显示已注册公会。',
-  '`/分配Boss guild:<公会>` → 将Boss分配给公会。',
+  '**Sub-Trackers**',
+  '`/setsubtracker action:set|remove|list` · `tracker:<2+>` · `channel:<ch>` · `language:<en/ko/ja/zh>` · `mute_kransia`.',
   '',
-  '**通知**',
-  '`/设置` → 配置通知频道。',
-  '`/设置 ping_here:True` → 启用 `@here` 出现提醒。',
+  '**Guild Rotation**',
+  '`/rotation type:kill|weekly|none` · `action:clear|status` · `flip_day:<day> flip_time:<HH:MM>`.',
+  '',
+  '**Guilds**',
+  '`/addguild guild_names:<n1> <n2>...` · `remove_guild:<n>` · `action:clear|list`.',
+  '`/assignboss guild:<guild>` → Assign bosses to a guild.',
+  '',
+  '**Timers**',
+  '`/import` · `/export` → Import/export timers (main tracker only).',
+  '',
+  '**Help**',
+  '`/astra` → Text-command help · `/adminastra` → This list.',
+].join('\n');
+
+const ADMIN_HELP_KO = [
+  '**ASTRA 슬래시 명령어 | 한국어**',
+  '',
+  '**설정**',
+  '`/설정` → 채널, 음성, `ping_here`, `mute_kransia`.',
+  '',
+  '**서브 트래커**',
+  '`/서브트래커설정 action:set|remove|list` · `tracker:<2+>` · `channel:<채널>` · `language:<en/ko/ja/zh>` · `mute_kransia`.',
+  '',
+  '**길드 로테이션**',
+  '`/로테이션 type:kill|weekly|none` · `action:clear|status` · `flip_day:<요일> flip_time:<HH:MM>`.',
+  '',
+  '**길드**',
+  '`/길드추가 guild_names:<이름1> <이름2>...` · `remove_guild:<이름>` · `action:clear|list`.',
+  '`/보스배정 guild:<길드>` → 길드에 보스 배정.',
+  '',
+  '**타이머**',
+  '`/가져오기` · `/내보내기` → 타이머 가져오기/내보내기 (메인 전용).',
+  '',
+  '**도움말**',
+  '`/도움말` → 텍스트 명령어 도움말 · `/adminastra` → 이 목록.',
+].join('\n');
+
+const ADMIN_HELP_JA = [
+  '**ASTRAスラッシュコマンド | 日本語**',
+  '',
+  '**設定**',
+  '`/せってい` → チャンネル、音声、`ping_here`、`mute_kransia`.',
+  '',
+  '**サブトラッカー**',
+  '`/サブトラッカー設定 action:set|remove|list` · `tracker:<2+>` · `channel:<チャンネル>` · `language:<en/ko/ja/zh>` · `mute_kransia`.',
+  '',
+  '**ギルドローテーション**',
+  '`/ローテーション type:kill|weekly|none` · `action:clear|status` · `flip_day:<曜日> flip_time:<HH:MM>`.',
+  '',
+  '**ギルド**',
+  '`/ギルド追加 guild_names:<名前1> <名前2>...` · `remove_guild:<名前>` · `action:clear|list`.',
+  '`/ボス割当 guild:<ギルド>` → ギルドにボスを割り当て.',
+  '',
+  '**タイマー**',
+  '`/いんぽーと` · `/エクスポート` → タイマーのインポート/エクスポート（メインのみ）.',
+  '',
+  '**ヘルプ**',
+  '`/へるぷ` → テキストコマンドのヘルプ · `/adminastra` → この一覧.',
+].join('\n');
+
+const ADMIN_HELP_ZH = [
+  '**ASTRA 斜杠命令 | 简体中文**',
+  '',
+  '**设置**',
+  '`/设置` → 频道、语音、`ping_here`、`mute_kransia`.',
   '',
   '**子追踪器**',
-  '`/子追踪器设置 action:set tracker:<2+> channel:<频道> language:<en/ko/ja/zh>` → 绑定独立追踪器。',
-  '`/子追踪器设置 action:remove tracker:<n>` → 解除子追踪器。',
-  '`/子追踪器设置 action:list` → 显示子追踪器列表。',
+  '`/子追踪器设置 action:set|remove|list` · `tracker:<2+>` · `channel:<频道>` · `language:<en/ko/ja/zh>` · `mute_kransia`.',
+  '',
+  '**公会轮换**',
+  '`/轮换 type:kill|weekly|none` · `action:clear|status` · `flip_day:<星期> flip_time:<HH:MM>`.',
+  '',
+  '**公会**',
+  '`/添加公会 guild_names:<名称1> <名称2>...` · `remove_guild:<名称>` · `action:clear|list`.',
+  '`/分配Boss guild:<公会>` → 将Boss分配给公会.',
+  '',
+  '**计时**',
+  '`/导入` · `/导出` → 导入/导出计时（仅主追踪器）.',
   '',
   '**帮助**',
-  '`帮助` / `/帮助` → 显示帮助。',
+  '`/帮助` → 文本命令帮助 · `/adminastra` → 本列表.',
 ].join('\n');
 
 export function buildDetailedHelp(lang = 'en') {
@@ -396,6 +405,13 @@ export function buildDetailedHelp(lang = 'en') {
   if (lang === 'ja') return HELP_JA;
   if (lang === 'zh') return HELP_ZH;
   return HELP_EN;
+}
+
+export function buildAdminHelp(lang = 'en') {
+  if (lang === 'ko') return ADMIN_HELP_KO;
+  if (lang === 'ja') return ADMIN_HELP_JA;
+  if (lang === 'zh') return ADMIN_HELP_ZH;
+  return ADMIN_HELP_EN;
 }
 
 export async function handleCommand(msg, tracker = mainCtx) {
@@ -432,12 +448,15 @@ export async function handleCommand(msg, tracker = mainCtx) {
   }
 
   if (cmd === 'set') {
-    const parsed = parseBossTimeArgs(parts.slice(1));
+    const { args: setArgs, offsetMinutes, invalid } = extractOffset(parts.slice(1));
+    if (invalid) return msg.reply(tFn('invalidOffset', lang));
+    const parsed = parseBossTimeArgs(setArgs);
     if (!parsed) return msg.reply(tFn('invalidTime', lang));
     const boss = findBossFn(parsed.name, lang);
     if (!boss) return msg.reply(`${tFn('bossNotFound', lang)} ${parsed.name}`);
     if (boss.weeklyRespawns) return msg.reply(`${bossNameFn(boss.id, lang)}: ${tFn('scheduleOnly', lang)}`);
-    const result = applySet(boss, parsed.date, parsed.time, msg.author, lang, tracker);
+    const off = offsetMinutes ?? 540;
+    const result = applySet(boss, parsed.date, parsed.time, msg.author, lang, tracker, off);
     if (typeof result === 'string') return msg.reply(result);
     const endTime = result.endTime;
     await handleRotationOnKill(boss.id, tracker);
@@ -449,6 +468,7 @@ export async function handleCommand(msg, tracker = mainCtx) {
     await saveTimersFn(tracker);
     await addHistoryFn(boss.id, 'killed', result.killedAt, tracker.id);
     speakSetFn(boss.id, endTime, tracker.id);
+    await msg.reply(`${tFn('setConverted', lang)} **${bossNameFn(boss.id, outLang)}** — ${parsed.time.slice(0, 2)}:${parsed.time.slice(2, 4)} ${offsetLabel(off)} → ${formatSpawnTimeFn(result.killedAt)} JST`);
     return;
   }
 
@@ -806,12 +826,15 @@ export async function handleCommand(msg, tracker = mainCtx) {
   }
 
   if (!resolved && parts.length >= 2 && !parts[0].startsWith('/')) {
-    const parsed = parseBossTimeArgs(parts);
+    const { args: setArgs, offsetMinutes, invalid } = extractOffset(parts);
+    if (invalid) return msg.reply(tFn('invalidOffset', lang));
+    const parsed = parseBossTimeArgs(setArgs);
     if (parsed) {
       const boss = findBossFn(parsed.name, lang);
       if (!boss) return msg.reply(`${tFn('bossNotFound', lang)} ${parsed.name}`);
       if (boss.weeklyRespawns) return msg.reply(`${bossNameFn(boss.id, lang)}: ${tFn('scheduleOnly', lang)}`);
-      const result = applySet(boss, parsed.date, parsed.time, msg.author, lang, tracker);
+      const off = offsetMinutes ?? 540;
+      const result = applySet(boss, parsed.date, parsed.time, msg.author, lang, tracker, off);
       if (typeof result === 'string') return msg.reply(result);
       const endTime = result.endTime;
       await handleRotationOnKill(boss.id, tracker);
@@ -823,6 +846,7 @@ export async function handleCommand(msg, tracker = mainCtx) {
       await saveTimersFn(tracker);
       await addHistoryFn(boss.id, 'killed', result.killedAt, tracker.id);
       speakSetFn(boss.id, endTime, tracker.id);
+      await msg.reply(`${tFn('setConverted', lang)} **${bossNameFn(boss.id, outLang)}** — ${parsed.time.slice(0, 2)}:${parsed.time.slice(2, 4)} ${offsetLabel(off)} → ${formatSpawnTimeFn(result.killedAt)} JST`);
       return;
     }
 
@@ -933,6 +957,7 @@ export async function handleInteraction(interaction) {
     const isAddguild = cmdName === 'addguild' || cmdName === '길드추가' || cmdName === 'ギルド追加';
     const isAssignboss = cmdName === 'assignboss' || cmdName === '보스배정' || cmdName === 'ボス割当';
     const isSetSub = cmdName === 'setsubtracker' || cmdName === '서브트래커설정' || cmdName === 'サブトラッカー設定';
+    const isAdminHelp = cmdName === 'adminastra';
 
     if (isSetSub) {
       const subAction = interaction.options.getString('action') || 'set';
@@ -1046,6 +1071,10 @@ export async function handleInteraction(interaction) {
 
     if (isHelp) {
       return interaction.reply({ content: buildDetailedHelp(helpLang).slice(0, 2000), flags: MessageFlags.Ephemeral });
+    }
+
+    if (isAdminHelp) {
+      return interaction.reply({ content: buildAdminHelp(helpLang).slice(0, 2000), flags: MessageFlags.Ephemeral });
     }
 
     if (isRotation) {

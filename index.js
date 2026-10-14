@@ -808,6 +808,10 @@ client.once('clientReady', async () => {
         descriptionLocalizations: { ko: '이 트래커의 크란시아 보스 알림 음소거', ja: 'このトラッカーのクランシアボス通知をミュート', 'zh-CN': '静音此追踪器的克兰西亚Boss通知' }
       }
     ]
+  }, {
+    name: 'adminastra',
+    description: 'Show all slash commands',
+    descriptionLocalizations: { ko: '모든 슬래시 명령어 표시', ja: 'すべてのスラッシュコマンドを表示', 'zh-CN': '显示所有斜杠命令' }
   }];
 
   try {
