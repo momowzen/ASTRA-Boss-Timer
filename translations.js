@@ -90,7 +90,7 @@ const LANG = {
       Secreta: "Secreta", Ordo: "Ordo", Asta: "Asta", Supore: "Supore",
       Chaiflock: "Chaiflock", Benji: "Benji", Libitina: "Libitina",
       Rakajeth: "Rakajeth", Icaruthia: "Icaruthia", Motti: "Motti",
-      Camalia: "Camalia", Nevaeh: "Nevaeh", Tumier: "Tumier",       Lucus: "Lucus",
+      Camalia: "Camalia", Nevaeh: "Nevaeh", Tumier: "Tumier", Nerucas: "Nerucas",       Lucus: "Lucus",
       Test: "Test"
     }
   },
@@ -185,7 +185,7 @@ const LANG = {
       Secreta: "세크레타", Ordo: "오르도", Asta: "아스타", Supore: "수포르",
       Chaiflock: "샤이프락", Benji: "벤지", Libitina: "리비티나",
       Rakajeth: "라카제스", Icaruthia: "이카루시아", Motti: "모티",
-      Camalia: "카말리아", Nevaeh: "네바", Tumier: "투미어",       Lucus: "루크스",
+      Camalia: "카말리아", Nevaeh: "네바", Tumier: "투미어", Nerucas: "네루카스",       Lucus: "루크스",
       Test: "테스트"
     }
   },
@@ -280,7 +280,7 @@ const LANG = {
       Secreta: "セクレタ", Ordo: "オルド", Asta: "アスタ", Supore: "スポル",
       Chaiflock: "シャイフロック", Benji: "ベンジー", Libitina: "リビティーナ",
       Rakajeth: "ラカゼス", Icaruthia: "イカルシア", Motti: "モティ",
-      Camalia: "カマリア", Nevaeh: "ネバ", Tumier: "トゥミエル",       Lucus: "ルクス",
+      Camalia: "カマリア", Nevaeh: "ネバ", Tumier: "トゥミエル", Nerucas: "ネルカス",       Lucus: "ルクス",
       Test: "テスト"
     }
   },
@@ -375,7 +375,7 @@ const LANG = {
       Secreta: "赛克瑞塔", Ordo: "欧多", Asta: "阿斯达", Supore: "苏波尔",
       Chaiflock: "夏普洛", Benji: "斑吉", Libitina: "利毕提娜",
       Rakajeth: "拉卡爵司", Icaruthia: "伊卡露西雅", Motti: "莫蒂",
-      Camalia: "卡玛莉雅", Nevaeh: "涅巴", Tumier: "图米尔",       Lucus: "鲁库斯",
+      Camalia: "卡玛莉雅", Nevaeh: "涅巴", Tumier: "图米尔", Nerucas: "涅鲁卡斯",       Lucus: "鲁库斯",
       Test: "测试"
     }
   }
@@ -421,6 +421,7 @@ const BOSSES_DATA = [
   { id: "Camalia", name: "Camalia", level: 135, weeklyRespawns: [{ day: 4, hour: 22, minute: 0 }] },
   { id: "Nevaeh", name: "Nevaeh", level: 140, weeklyRespawns: [{ day: 0, hour: 23, minute: 0 }] },
   { id: "Tumier", name: "Tumier", level: 140, weeklyRespawns: [{ day: 0, hour: 20, minute: 0 }] },
+  { id: "Nerucas", name: "Nerucas", level: 140, weeklyRespawns: [{ day: 0, hour: 17, minute: 0 }] },
   { id: "Lucus", name: "Lucus", level: 145, weeklyRespawns: [{ day: 6, hour: 23, minute: 0 }] },
   { id: "Test", name: "Test", level: 1, respawn: 305 }
 ];
