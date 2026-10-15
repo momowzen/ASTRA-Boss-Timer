@@ -77,7 +77,6 @@ const LANG = {
     subTrackerUnbound: "This channel is not bound to a tracker. Use `/setsubtracker` to bind it.",
     subTrackerListTitle: "Sub-trackers:",
     subTrackerMuted: "🔇 muted",
-    setConverted: "Set:",
     invalidOffset: "Invalid timezone offset.",
     bossNames: {
       Venatus: "Venatus", Viorent: "Viorent", Ego: "Ego", Clemantis: "Clemantis",
@@ -172,7 +171,6 @@ const LANG = {
     subTrackerUnbound: "이 채널은 트래커에 연결되지 않았습니다. `/setsubtracker`로 연결하세요.",
     subTrackerListTitle: "서브 트래커:",
     subTrackerMuted: "🔇 음소거",
-    setConverted: "설정:",
     invalidOffset: "잘못된 시간대 오프셋입니다.",
     bossNames: {
       Venatus: "베나투스", Viorent: "비오렌트", Ego: "에고", Clemantis: "클레멘티스",
@@ -267,7 +265,6 @@ const LANG = {
     subTrackerUnbound: "このチャンネルはトラッカーに接続されていません。`/setsubtracker`で接続してください。",
     subTrackerListTitle: "サブトラッカー:",
     subTrackerMuted: "🔇 ミュート",
-    setConverted: "設定:",
     invalidOffset: "無効なタイムゾーンオフセットです。",
     bossNames: {
       Venatus: "ベナトゥス", Viorent: "ビオレント", Ego: "エゴ", Clemantis: "クレメンティス",
@@ -362,7 +359,6 @@ const LANG = {
     subTrackerUnbound: "此频道未连接到追踪器。使用 `/setsubtracker` 连接。",
     subTrackerListTitle: "子追踪器：",
     subTrackerMuted: "🔇 已静音",
-    setConverted: "已设置：",
     invalidOffset: "无效的时区偏移。",
     bossNames: {
       Venatus: "贝纳图斯", Viorent: "比欧兰特", Ego: "艾果", Clemantis: "克莱曼蒂斯",

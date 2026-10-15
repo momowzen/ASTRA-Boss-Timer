@@ -166,14 +166,6 @@ function extractOffset(args) {
   return { args: args.slice(0, -1), offsetMinutes: minutes };
 }
 
-function offsetLabel(offsetMinutes) {
-  const sign = offsetMinutes < 0 ? '-' : '+';
-  const abs = Math.abs(offsetMinutes);
-  const h = Math.floor(abs / 60);
-  const m = abs % 60;
-  return `UTC${sign}${h}${m ? ':' + String(m).padStart(2, '0') : ''}`;
-}
-
 function applySet(boss, dateStr, timeStr, user, lang, tracker = mainCtx, offsetMinutes = 540) {
   const hour = parseInt(timeStr.slice(0, 2));
   const minute = parseInt(timeStr.slice(2, 4));
@@ -468,7 +460,6 @@ export async function handleCommand(msg, tracker = mainCtx) {
     await saveTimersFn(tracker);
     await addHistoryFn(boss.id, 'killed', result.killedAt, tracker.id);
     speakSetFn(boss.id, endTime, tracker.id);
-    await msg.reply(`${tFn('setConverted', lang)} **${bossNameFn(boss.id, outLang)}** — ${parsed.time.slice(0, 2)}:${parsed.time.slice(2, 4)} ${offsetLabel(off)} → ${formatSpawnTimeFn(result.killedAt)} JST`);
     return;
   }
 
@@ -846,7 +837,6 @@ export async function handleCommand(msg, tracker = mainCtx) {
       await saveTimersFn(tracker);
       await addHistoryFn(boss.id, 'killed', result.killedAt, tracker.id);
       speakSetFn(boss.id, endTime, tracker.id);
-      await msg.reply(`${tFn('setConverted', lang)} **${bossNameFn(boss.id, outLang)}** — ${parsed.time.slice(0, 2)}:${parsed.time.slice(2, 4)} ${offsetLabel(off)} → ${formatSpawnTimeFn(result.killedAt)} JST`);
       return;
     }
 
