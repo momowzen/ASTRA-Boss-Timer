@@ -139,6 +139,13 @@ export function resetBossCycleFn(bossId, ctx = mainCtx) {
 async function runNotifCycle(ctx) {
   const now = Date.now();
   const timers = ctx.timers;
+  let seeded = false;
+  for (const boss of BOSSES_DATA) {
+    if (!boss.weeklyRespawns || timers[boss.id]) continue;
+    const next = getNextSpawnFn(boss, timers);
+    if (next) { timers[boss.id] = { endTime: next.getTime(), startedAt: next.getTime(), weekly: true }; seeded = true; }
+  }
+  if (seeded) await saveTimersFn(ctx);
   for (const [id, info] of Object.entries(timers)) {
     try {
     if (!info || !info.endTime) continue;
