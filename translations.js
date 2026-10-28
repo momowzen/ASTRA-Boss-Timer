@@ -89,7 +89,7 @@ const LANG = {
       Secreta: "Secreta", Ordo: "Ordo", Asta: "Asta", Supore: "Supore",
       Chaiflock: "Chaiflock", Benji: "Benji", Libitina: "Libitina",
       Rakajeth: "Rakajeth", Icaruthia: "Icaruthia", Motti: "Motti",
-      Camalia: "Camalia", Nevaeh: "Nevaeh", Tumier: "Tumier", Nerucas: "Nerucas",       Lucus: "Lucus",
+      Camalia: "Camalia", Nevaeh: "Nevaeh", Tumier: "Tumier", Nerucas: "Nerucas", Dumenta: "Dumenta",       Lucus: "Lucus",
       Test: "Test"
     }
   },
@@ -183,7 +183,7 @@ const LANG = {
       Secreta: "세크레타", Ordo: "오르도", Asta: "아스타", Supore: "수포르",
       Chaiflock: "샤이프락", Benji: "벤지", Libitina: "리비티나",
       Rakajeth: "라카제스", Icaruthia: "이카루시아", Motti: "모티",
-      Camalia: "카말리아", Nevaeh: "네바", Tumier: "투미어", Nerucas: "네루카스",       Lucus: "루크스",
+      Camalia: "카말리아", Nevaeh: "네바", Tumier: "투미어", Nerucas: "네루카스", Dumenta: "두멘타",       Lucus: "루크스",
       Test: "테스트"
     }
   },
@@ -277,7 +277,7 @@ const LANG = {
       Secreta: "セクレタ", Ordo: "オルド", Asta: "アスタ", Supore: "スポル",
       Chaiflock: "シャイフロック", Benji: "ベンジー", Libitina: "リビティーナ",
       Rakajeth: "ラカゼス", Icaruthia: "イカルシア", Motti: "モティ",
-      Camalia: "カマリア", Nevaeh: "ネバ", Tumier: "トゥミエル", Nerucas: "ネルカス",       Lucus: "ルクス",
+      Camalia: "カマリア", Nevaeh: "ネバ", Tumier: "トゥミエル", Nerucas: "ネルカス", Dumenta: "ドゥメンタ",       Lucus: "ルクス",
       Test: "テスト"
     }
   },
@@ -371,7 +371,7 @@ const LANG = {
       Secreta: "赛克瑞塔", Ordo: "欧多", Asta: "阿斯达", Supore: "苏波尔",
       Chaiflock: "夏普洛", Benji: "斑吉", Libitina: "利毕提娜",
       Rakajeth: "拉卡爵司", Icaruthia: "伊卡露西雅", Motti: "莫蒂",
-      Camalia: "卡玛莉雅", Nevaeh: "涅巴", Tumier: "图米尔", Nerucas: "涅鲁卡斯",       Lucus: "鲁库斯",
+      Camalia: "卡玛莉雅", Nevaeh: "涅巴", Tumier: "图米尔", Nerucas: "涅鲁卡斯", Dumenta: "杜门塔",       Lucus: "鲁库斯",
       Test: "测试"
     }
   }
@@ -381,7 +381,7 @@ const BOSSES_DATA = [
   { id: "Venatus", name: "Venatus", level: 60, respawn: 36000 },
   { id: "Viorent", name: "Viorent", level: 65, respawn: 36000 },
   { id: "Ego", name: "Ego", level: 70, respawn: 75600 },
-  { id: "Clemantis", name: "Clemantis", level: 70, weeklyRespawns: [{ day: 1, hour: 12, minute: 30 }, { day: 4, hour: 20, minute: 0 }] },
+  { id: "Clemantis", name: "Clemantis", level: 70, weeklyRespawns: [{ day: 1, hour: 12, minute: 30 }, { day: 4, hour: 18, minute: 0 }] },
   { id: "Livera", name: "Livera", level: 75, respawn: 86400 },
   { id: "Araneo", name: "Araneo", level: 75, respawn: 86400 },
   { id: "Undomiel", name: "Undomiel", level: 80, respawn: 86400 },
@@ -392,12 +392,12 @@ const BOSSES_DATA = [
   { id: "Thymele", name: "Thymele", level: 85, weeklyRespawns: [{ day: 1, hour: 20, minute: 0 }, { day: 3, hour: 12, minute: 30 }] },
   { id: "Amentis", name: "Amentis", level: 88, respawn: 104400 },
   { id: "BaronBraudmore", name: "Baron Braudmore", level: 88, respawn: 115200 },
-  { id: "Milavy", name: "Milavy", level: 90, weeklyRespawns: [{ day: 6, hour: 16, minute: 0 }] },
+  { id: "Milavy", name: "Milavy", level: 90, weeklyRespawns: [{ day: 6, hour: 17, minute: 0 }] },
   { id: "Wannitas", name: "Wannitas", level: 93, respawn: 172800 },
   { id: "Metus", name: "Metus", level: 93, respawn: 172800 },
   { id: "Duplican", name: "Duplican", level: 93, respawn: 172800 },
   { id: "Shuliar", name: "Shuliar", level: 95, respawn: 126000 },
-  { id: "Ringor", name: "Ringor", level: 95, weeklyRespawns: [{ day: 6, hour: 18, minute: 0 }] },
+  { id: "Ringor", name: "Ringor", level: 95, weeklyRespawns: [{ day: 6, hour: 15, minute: 0 }] },
   { id: "Roderick", name: "Roderick", level: 95, weeklyRespawns: [{ day: 5, hour: 20, minute: 0 }] },
   { id: "Gareth", name: "Gareth", level: 98, respawn: 115200 },
   { id: "Titore", name: "Titore", level: 98, respawn: 133200 },
@@ -411,13 +411,15 @@ const BOSSES_DATA = [
   { id: "Chaiflock", name: "Chaiflock", level: 120, weeklyRespawns: [{ day: 0, hour: 16, minute: 0 }] },
   { id: "Benji", name: "Benji", level: 120, weeklyRespawns: [{ day: 0, hour: 22, minute: 0 }] },
   { id: "Libitina", name: "Libitina", level: 130, weeklyRespawns: [{ day: 1, hour: 22, minute: 0 }, { day: 6, hour: 22, minute: 0 }] },
-  { id: "Rakajeth", name: "Rakajeth", level: 130, weeklyRespawns: [{ day: 2, hour: 23, minute: 0 }, { day: 0, hour: 20, minute: 0 }] },
+  { id: "Rakajeth", name: "Rakajeth", level: 130, weeklyRespawns: [{ day: 2, hour: 23, minute: 0 }, { day: 4, hour: 20, minute: 0 }] },
+  { id: "Camalia", name: "Camalia", level: 135, weeklyRespawns: [{ day: 4, hour: 22, minute: 0 }] },
+  { id: "Tumier", name: "Tumier", level: 140, weeklyRespawns: [{ day: 1, hour: 23, minute: 0 }] },
+  { id: "Nerucas", name: "Nerucas", level: 140, weeklyRespawns: [{ day: 0, hour: 17, minute: 0 }] },
+  { id: "Dumenta", name: "Dumenta", level: 140, weeklyRespawns: [{ day: 0, hour: 20, minute: 0 }] },
+  // Kransia bosses
   { id: "Icaruthia", name: "Icaruthia", level: 135, weeklyRespawns: [{ day: 2, hour: 22, minute: 0 }, { day: 5, hour: 22, minute: 0 }] },
   { id: "Motti", name: "Motti", level: 135, weeklyRespawns: [{ day: 3, hour: 20, minute: 0 }, { day: 6, hour: 20, minute: 0 }] },
-  { id: "Camalia", name: "Camalia", level: 135, weeklyRespawns: [{ day: 4, hour: 22, minute: 0 }] },
   { id: "Nevaeh", name: "Nevaeh", level: 140, weeklyRespawns: [{ day: 0, hour: 23, minute: 0 }] },
-  { id: "Tumier", name: "Tumier", level: 140, weeklyRespawns: [{ day: 0, hour: 20, minute: 0 }] },
-  { id: "Nerucas", name: "Nerucas", level: 140, weeklyRespawns: [{ day: 0, hour: 17, minute: 0 }] },
   { id: "Lucus", name: "Lucus", level: 145, weeklyRespawns: [{ day: 6, hour: 23, minute: 0 }] },
   { id: "Test", name: "Test", level: 1, respawn: 305 }
 ];
