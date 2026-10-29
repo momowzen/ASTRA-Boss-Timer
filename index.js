@@ -358,7 +358,7 @@ initVoice({
 
 initNotifs({
   client, config, db, timers, bossName, t, formatJST,
-  LANG_LIST, BOSSES_DATA, getNextSpawn,
+  LANG_LIST, BOSSES_DATA, getNextSpawn, TZ_OFFSET,
   notifMessageCache, sentSoonNotifs, sentSpawnedNotifs, ttsSpokenMinutes,
   mainCtx, allTrackerCtxs,
   formatTs: discordTs,

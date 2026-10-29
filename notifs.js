@@ -1,6 +1,6 @@
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
 
-let client, config, db, bossNameFn, tFn, formatJSTFn, LANG_LIST, BOSSES_DATA;
+let client, config, db, bossNameFn, tFn, formatJSTFn, LANG_LIST, BOSSES_DATA, TZ_OFFSET;
 let getNextSpawnFn, sendAllNotifs, removeBossReactions, resetBossCycle, saveConfigFn, saveTimersFn;
 
 let mainCtx;
@@ -12,6 +12,16 @@ let speakFn, speakFromNotifLoopFn, speakSpawnedFn, formatTsFn;
 const TTS_MINUTES = new Set([10, 5, 4, 3, 2, 1]);
 const KRANSIA_IDS = new Set(['Motti', 'Icaruthia', 'Lucus', 'Nevaeh']);
 
+function weeklyScheduleMatches(boss, endTime) {
+  if (!boss.weeklyRespawns || !endTime) return false;
+  const d = new Date(endTime + TZ_OFFSET);
+  const day = d.getUTCDay();
+  const hour = d.getUTCHours();
+  const minute = d.getUTCMinutes();
+  return d.getUTCSeconds() === 0 && d.getUTCMilliseconds() === 0
+    && boss.weeklyRespawns.some(r => r.day === day && r.hour === hour && r.minute === minute);
+}
+
 export function initNotifs(deps) {
   client = deps.client;
   config = deps.config;
@@ -22,6 +32,7 @@ export function initNotifs(deps) {
   formatTsFn = deps.formatTs;
   LANG_LIST = deps.LANG_LIST;
   BOSSES_DATA = deps.BOSSES_DATA;
+  TZ_OFFSET = deps.TZ_OFFSET;
   getNextSpawnFn = deps.getNextSpawn;
   mainCtx = deps.mainCtx;
   allTrackerCtxsFn = deps.allTrackerCtxs;
@@ -141,9 +152,18 @@ async function runNotifCycle(ctx) {
   const timers = ctx.timers;
   let seeded = false;
   for (const boss of BOSSES_DATA) {
-    if (!boss.weeklyRespawns || timers[boss.id]) continue;
+    if (!boss.weeklyRespawns) continue;
+    const sig = JSON.stringify(boss.weeklyRespawns);
+    const existing = timers[boss.id];
+    if (existing && weeklyScheduleMatches(boss, existing.endTime)) {
+      if (existing.scheduleSig !== sig) { existing.scheduleSig = sig; seeded = true; }
+      continue;
+    }
     const next = getNextSpawnFn(boss, timers);
-    if (next) { timers[boss.id] = { endTime: next.getTime(), startedAt: next.getTime(), weekly: true }; seeded = true; }
+    if (next) {
+      timers[boss.id] = { endTime: next.getTime(), startedAt: next.getTime(), weekly: true, scheduleSig: sig };
+      seeded = true;
+    }
   }
   if (seeded) await saveTimersFn(ctx);
   for (const [id, info] of Object.entries(timers)) {
